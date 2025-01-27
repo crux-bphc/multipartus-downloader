@@ -1,14 +1,15 @@
-import { invoke } from "@tauri-apps/api/core";
 import { createSignal } from "solid-js";
 import "./App.css";
+import { Command } from "@tauri-apps/plugin-shell";
 
 function App() {
 	const [greetMsg, setGreetMsg] = createSignal("");
-	const [name, setName] = createSignal("");
 
 	async function greet() {
-		// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-		setGreetMsg(await invoke("greet", { name: name() }));
+		const command = Command.sidecar("binaries/ffmpeg");
+		const output = await command.execute();
+		console.log(output);
+		setGreetMsg("Clicked");
 	}
 
 	return (
