@@ -22,8 +22,9 @@ const sidecarDirectory = join(
 for (const [from, to] of binaries) {
 	const target = join(sidecarDirectory, `ffmpeg-${to}`);
 	if (await Bun.file(target).exists()) continue;
-
-	const file = await fetch(`${releases}/${from}`);
+	const link = `${releases}/ffmpeg-${from}`;
+	console.info(`Downloading ${link}`);
+	const file = await fetch(link);
 	await Bun.write(target, file);
 	console.info(`Downloaded ${from} to ${target}`);
 }
