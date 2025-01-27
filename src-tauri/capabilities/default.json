@@ -12,6 +12,7 @@
       "identifier": "shell:allow-execute",
       "allow": [
         {
+          "args": ["-version"],
           "name": "binaries/ffmpeg",
           "sidecar": true
         }

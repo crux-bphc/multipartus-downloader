@@ -6,10 +6,9 @@ function App() {
 	const [greetMsg, setGreetMsg] = createSignal("");
 
 	async function greet() {
-		const command = Command.sidecar("binaries/ffmpeg");
+		const command = Command.sidecar("binaries/ffmpeg", ["-version"]);
 		const output = await command.execute();
-		console.log(output);
-		setGreetMsg("Clicked");
+		setGreetMsg(output.stdout);
 	}
 
 	return (
