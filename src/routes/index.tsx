@@ -1,8 +1,7 @@
-import "./App.css";
 import { Command } from "@tauri-apps/plugin-shell";
 import { createSignal } from "solid-js";
 
-function App() {
+export default function HomePage() {
 	const [greetMsg, setGreetMsg] = createSignal("");
 
 	async function greet() {
@@ -20,5 +19,3 @@ function App() {
 		</main>
 	);
 }
-
-export default App;
