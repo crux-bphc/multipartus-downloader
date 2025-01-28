@@ -1,5 +1,5 @@
-import { createSignal } from "solid-js";
 import "./App.css";
+import { createSignal } from "solid-js";
 import { Command } from "@tauri-apps/plugin-shell";
 
 function App() {
