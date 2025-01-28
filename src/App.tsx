@@ -1,6 +1,6 @@
 import "./App.css";
-import { createSignal } from "solid-js";
 import { Command } from "@tauri-apps/plugin-shell";
+import { createSignal } from "solid-js";
 
 function App() {
 	const [greetMsg, setGreetMsg] = createSignal("");
