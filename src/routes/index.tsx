@@ -1,7 +1,8 @@
+import { Button } from "@/components/ui/button";
 import { logtoClient } from "@/lib/logto";
 import { onUrl, start } from "@fabianlars/tauri-plugin-oauth";
 
-export default function HomePage() {
+export function HomePage() {
 	async function handleLogin() {
 		const port = await start();
 		await logtoClient.signIn(`http://localhost:${port}`);
@@ -18,10 +19,8 @@ export default function HomePage() {
 	}
 
 	return (
-		<main class="container">
-			<button onClick={handleLogin} type="button">
-				Login
-			</button>
+		<main className="container">
+			<Button onClick={handleLogin}>Login</Button>
 		</main>
 	);
 }

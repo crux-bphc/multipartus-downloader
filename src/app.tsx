@@ -1,18 +1,21 @@
-/* @refresh reload */
-import { render } from "solid-js/web";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter, Route, Routes } from "react-router";
+import { HomePage } from "./routes";
 import "./app.css";
 
-import { Router } from "@solidjs/router";
-import { lazy } from "solid-js";
+const node = document.getElementById("root");
 
-const routes = [
-	{
-		path: "/",
-    component: lazy(() => import("./routes/index")),
-	},
-];
+if (!node) {
+	throw new Error("No root element found");
+}
 
-render(
-	() => <Router>{routes}</Router>,
-	document.getElementById("root") as HTMLElement,
+createRoot(node).render(
+	<StrictMode>
+		<BrowserRouter>
+			<Routes>
+				<Route path="/" element={<HomePage />} />
+			</Routes>
+		</BrowserRouter>
+	</StrictMode>,
 );
