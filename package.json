@@ -15,6 +15,8 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@fabianlars/tauri-plugin-oauth": "2",
+    "@logto/browser": "^3.0.3",
     "@solidjs/router": "^0.15.3",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
@@ -29,6 +31,7 @@
     "tailwindcss": "^4.0.0",
     "typescript": "~5.6.2",
     "vite": "^6.0.3",
-    "vite-plugin-solid": "^2.11.0"
+    "vite-plugin-solid": "^2.11.0",
+    "vite-tsconfig-paths": "^5.1.4"
   }
 }

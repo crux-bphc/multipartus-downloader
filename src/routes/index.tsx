@@ -1,21 +1,27 @@
-import { Command } from "@tauri-apps/plugin-shell";
-import { createSignal } from "solid-js";
+import { logtoClient } from "@/lib/logto";
+import { onUrl, start } from "@fabianlars/tauri-plugin-oauth";
 
 export default function HomePage() {
-	const [greetMsg, setGreetMsg] = createSignal("");
+	async function handleLogin() {
+		const port = await start();
+		await logtoClient.signIn(`http://localhost:${port}`);
 
-	async function greet() {
-		const command = Command.sidecar("binaries/ffmpeg", ["-version"]);
-		const output = await command.execute();
-		setGreetMsg(output.stdout);
+		await onUrl(async (url) => {
+			await logtoClient.handleSignInCallback(url);
+			if (await logtoClient.isAuthenticated()) {
+				alert("Authentication successful!");
+				console.log(await logtoClient.getIdToken());
+			} else {
+				alert("Authentication failed!");
+			}
+		});
 	}
 
 	return (
 		<main class="container">
-			<button onClick={greet} type="button">
-				Greet
+			<button onClick={handleLogin} type="button">
+				Login
 			</button>
-			<p>{greetMsg()}</p>
 		</main>
 	);
 }
