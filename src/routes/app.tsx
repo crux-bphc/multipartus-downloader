@@ -1,3 +1,4 @@
+import { LectureSelector } from "@/components/lecture-selector";
 import { Button } from "@/components/ui/button";
 import {
 	Command,
@@ -70,6 +71,7 @@ function SearchSubject(props: {
 function SubjectView(props: { department: string; code: string }) {
 	return (
 		<div className="flex flex-col gap-6">
+			<LectureSelector department={props.department} code={props.code} />
 			<VideoSelector />
 			<Button size="lg">
 				Download
