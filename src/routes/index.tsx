@@ -1,23 +1,18 @@
 import { Button } from "@/components/ui/button";
-import { logtoClient } from "@/lib/logto";
+import { useLogto } from "@/lib/logto";
 import { onUrl, start } from "@fabianlars/tauri-plugin-oauth";
-import { useEffect } from "react";
-import { useNavigate } from "react-router";
 
 function LoginButton() {
-	const navigate = useNavigate();
+	const { logtoClient, updateAuthState } = useLogto();
+
 	async function handleLogin() {
 		const port = await start();
+		console.log(`oauth started at port ${port}`);
 		await logtoClient.signIn(`http://localhost:${port}`);
 
 		await onUrl(async (url) => {
 			await logtoClient.handleSignInCallback(url);
-			if (await logtoClient.isAuthenticated()) {
-				alert("Authentication successful!");
-				navigate("/dashboard");
-			} else {
-				alert("Authentication failed!");
-			}
+			await updateAuthState();
 		});
 	}
 
@@ -53,17 +48,6 @@ function LoginButton() {
 }
 
 export function LoginPage() {
-	const navigate = useNavigate();
-	async function onMount() {
-		if (await logtoClient.isAuthenticated()) {
-			navigate("/download");
-		}
-	}
-
-	useEffect(() => {
-		onMount();
-	});
-
 	return (
 		<main className="mx-auto container">
 			<div className="flex flex-col items-center justify-center h-svh gap-12">
