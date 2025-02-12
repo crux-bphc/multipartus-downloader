@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { logtoClient } from "@/lib/logto";
 import { onUrl, start } from "@fabianlars/tauri-plugin-oauth";
+import { useEffect } from "react";
+import { useNavigate } from "react-router";
 
 function LoginButton() {
+	const navigate = useNavigate();
 	async function handleLogin() {
 		const port = await start();
 		await logtoClient.signIn(`http://localhost:${port}`);
@@ -11,7 +14,7 @@ function LoginButton() {
 			await logtoClient.handleSignInCallback(url);
 			if (await logtoClient.isAuthenticated()) {
 				alert("Authentication successful!");
-				console.log(await logtoClient.getIdToken());
+				navigate("/dashboard");
 			} else {
 				alert("Authentication failed!");
 			}
@@ -50,6 +53,17 @@ function LoginButton() {
 }
 
 export function LoginPage() {
+	const navigate = useNavigate();
+	async function onMount() {
+		if (await logtoClient.isAuthenticated()) {
+			navigate("/download");
+		}
+	}
+
+	useEffect(() => {
+		onMount();
+	});
+
 	return (
 		<main className="mx-auto container">
 			<div className="flex flex-col items-center justify-center h-svh gap-12">
@@ -57,9 +71,7 @@ export function LoginPage() {
 					<span className="text-blue-500">MULTI</span>PARTUS Downloader
 				</h1>
 				<LoginButton />
-				<p className="text-sm text-muted-foreground">
-					Created by CRUx
-				</p>
+				<p className="text-sm text-muted-foreground">Created by CRUx</p>
 			</div>
 		</main>
 	);
