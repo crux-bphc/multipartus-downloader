@@ -24,7 +24,7 @@ function SearchSubject(props: {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
 	const { idToken } = useLogto();
-	const { data: subjects } = useSWR<Multipartus.Subject[]>(() => [
+	const { data: subjects } = useSWR<Multipartus.Subject[]>([
 		`subject/search?q=${encodeURIComponent(search)}`,
 		idToken,
 	]);
@@ -66,6 +66,19 @@ function SearchSubject(props: {
 	);
 }
 
+function SubjectView(props: { subject: [string, string] }) {
+	return (
+		<div className="grid grid-cols-2 mt-12">
+			<div>
+				{props.subject.join(" ")}
+			</div>
+			<div>
+				TODO
+			</div>
+		</div>
+	);
+}
+
 export const DownloadPage = () => {
 	const [subject, setSubject] = useState<[string, string] | null>(null);
 	const { idToken } = useLogto();
@@ -76,9 +89,10 @@ export const DownloadPage = () => {
 
 	return (
 		<main className="mx-auto container">
+			<br />
 			<SearchSubject selectSubject={setSubject} />
 			{subject ? (
-				subject.join(" ")
+				<SubjectView subject={subject} />
 			) : (
 				<div className="flex flex-col gap-6 justify-center items-center py-12">
 					<BirdIcon className="w-64 h-64 text-muted-foreground" />

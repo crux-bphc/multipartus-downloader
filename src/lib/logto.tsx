@@ -57,7 +57,7 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 
 	useEffect(() => {
 		if (isAuthenticated) {
-			navigate("/download");
+			navigate("/app");
 		} else {
 			navigate("/");
 		}

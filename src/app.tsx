@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
-import { DownloadPage } from "./routes/download";
+import { DownloadPage } from "./routes/app";
 import { LoginPage } from "./routes/index";
 import "@fontsource-variable/lexend";
 import "./app.css";
@@ -19,7 +19,7 @@ createRoot(node).render(
 			<Routes>
 				<Route element={<AppLayout />}>
 					<Route index element={<LoginPage />} />
-					<Route path="/download" element={<DownloadPage />} />
+					<Route path="/app" element={<DownloadPage />} />
 				</Route>
 			</Routes>
 		</BrowserRouter>
