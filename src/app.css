@@ -5,6 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+	--default-font-family: "Lexend Variable";
 	--background: hsl(0 0% 100%);
 	--foreground: hsl(0 0% 3.9%);
 	--card: hsl(0 0% 100%);
@@ -94,6 +95,7 @@
 	* {
 		@apply border-border outline-ring/50;
 	}
+
 	body {
 		@apply bg-background text-foreground;
 	}

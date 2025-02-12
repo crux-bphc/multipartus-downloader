@@ -16,6 +16,7 @@
   "license": "MIT",
   "dependencies": {
     "@fabianlars/tauri-plugin-oauth": "2",
+    "@fontsource-variable/lexend": "^5.1.2",
     "@logto/browser": "^3.0.3",
     "@radix-ui/react-slot": "^1.1.2",
     "@tauri-apps/api": "^2",

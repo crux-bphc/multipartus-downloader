@@ -1,7 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
-import { HomePage } from "./routes";
+import { LoginPage } from "./routes";
+import "@fontsource-variable/lexend";
 import "./app.css";
 
 const node = document.getElementById("root");
@@ -14,7 +15,7 @@ createRoot(node).render(
 	<StrictMode>
 		<BrowserRouter>
 			<Routes>
-				<Route path="/" element={<HomePage />} />
+				<Route path="/" element={<LoginPage />} />
 			</Routes>
 		</BrowserRouter>
 	</StrictMode>,
