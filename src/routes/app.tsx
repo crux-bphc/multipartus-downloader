@@ -12,8 +12,9 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import { VideoSelector } from "@/components/video-selector";
 import { useLogto } from "@/lib/logto";
-import { BirdIcon } from "lucide-react";
+import { BirdIcon, DownloadIcon } from "lucide-react";
 import { useState } from "react";
 import useSWR from "swr";
 
@@ -35,7 +36,7 @@ function SearchSubject(props: {
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
-				<Button variant="outline" className="flex mx-auto w-lg">
+				<Button variant="outline" className="flex mx-auto w-lg text-lg">
 					{label}
 				</Button>
 			</PopoverTrigger>
@@ -66,18 +67,18 @@ function SearchSubject(props: {
 	);
 }
 
-function SubjectView(props: { subject: [string, string] }) {
+function SubjectView(props: { department: string; code: string }) {
 	return (
-		<div className="grid grid-cols-2 mt-12">
-			<div>
-				{props.subject.join(" ")}
-			</div>
-			<div>
-				TODO
-			</div>
+		<div className="flex flex-col gap-6">
+			<VideoSelector />
+			<Button size="lg">
+				Download
+				<DownloadIcon />
+			</Button>
 		</div>
 	);
 }
+1;
 
 export const DownloadPage = () => {
 	const [subject, setSubject] = useState<[string, string] | null>(null);
@@ -91,8 +92,9 @@ export const DownloadPage = () => {
 		<main className="mx-auto container">
 			<br />
 			<SearchSubject selectSubject={setSubject} />
+			<br />
 			{subject ? (
-				<SubjectView subject={subject} />
+				<SubjectView department={subject[0]} code={subject[1]} />
 			) : (
 				<div className="flex flex-col gap-6 justify-center items-center py-12">
 					<BirdIcon className="w-64 h-64 text-muted-foreground" />
