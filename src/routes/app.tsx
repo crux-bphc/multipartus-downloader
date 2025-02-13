@@ -25,14 +25,18 @@ function SearchSubject() {
 	const [search, setSearch] = useState("");
 	const [debouncedSearch] = useDebounce(search, 500);
 	const [subjects, setSubjects] = useState<Multipartus.Subject[]>([]);
+	const [loading, setLoading] = useState(false);
 
 	const formatSubject = (subject: Multipartus.Subject) =>
 		`${subject.department} ${subject.code} - ${subject.name}`;
 
 	useEffect(() => {
+		setLoading(true);
 		fetchLex<Multipartus.Subject[]>(
 			`subject/search?q=${encodeURIComponent(debouncedSearch)}`,
-		).then(setSubjects);
+		)
+			.then(setSubjects)
+			.finally(() => setLoading(false));
 	}, [debouncedSearch]);
 
 	return (
@@ -46,7 +50,9 @@ function SearchSubject() {
 				<Command shouldFilter={false}>
 					<CommandInput value={search} onValueChange={setSearch} />
 					<CommandList>
-						<CommandEmpty>No subject found.</CommandEmpty>
+						<CommandEmpty>
+							{loading ? "Fetching..." : "No subject found."}
+						</CommandEmpty>
 						<CommandGroup>
 							{subjects?.map((subject) => (
 								<CommandItem
