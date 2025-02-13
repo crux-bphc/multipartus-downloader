@@ -55,7 +55,7 @@ export function LectureSelector(props: { department: string; code: string }) {
 			render={({ field }) => (
 				<Select
 					onValueChange={(value) => field.onChange(value.split(";"))}
-					value={getStringValue(lectures[0])}
+					defaultValue={field.value.join(";")}
 				>
 					<SelectTrigger>
 						<SelectValue />

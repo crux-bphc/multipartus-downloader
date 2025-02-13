@@ -1,3 +1,5 @@
+import { fetchLex } from "@/lib/lex";
+import { useLogto } from "@/lib/logto";
 import { DownloadIcon } from "lucide-react";
 import { FormProvider, type SubmitHandler, useForm } from "react-hook-form";
 import { LectureSelector } from "./lecture-selector";
@@ -5,7 +7,7 @@ import { Button } from "./ui/button";
 import { VideoSelector } from "./video-selector";
 
 export type DownloadFormValues = {
-	lecture?: [number, number];
+	lecture: [number, number];
 	videos: {
 		selected: boolean;
 		ttid: number;
@@ -13,10 +15,19 @@ export type DownloadFormValues = {
 };
 
 export function DownloadForm(props: { department: string; code: string }) {
+	const { idToken } = useLogto();
 	const methods = useForm<DownloadFormValues>({
-		defaultValues: {
-			lecture: undefined,
-			videos: [],
+		defaultValues: async () => {
+			const lectures = await fetchLex<Multipartus.Lecture[]>([
+				`subject/${props.department}/${props.code}/lectures`,
+				// biome-ignore lint/style/noNonNullAssertion: has to be non-null
+				idToken!,
+			]);
+
+			return {
+				lecture: lectures[0].id.ID,
+				videos: [],
+			};
 		},
 	});
 
