@@ -1,12 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { useLogto } from "@/lib/logto";
+import { logtoClient, useLogto } from "@/lib/logto";
 import { onUrl, start } from "@fabianlars/tauri-plugin-oauth";
 
 function LoginButton() {
-	const { logtoClient, updateAuthState } = useLogto();
+	const { updateAuthState } = useLogto();
 
 	async function handleLogin() {
-		const port = await start();
+		const port = await start({ ports: [6942] });
 		console.log(`oauth started at port ${port}`);
 		await logtoClient.signIn(`http://localhost:${port}`);
 
