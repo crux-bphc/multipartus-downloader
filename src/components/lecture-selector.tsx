@@ -1,5 +1,8 @@
 import { useLogto } from "@/lib/logto";
+import { useEffect } from "react";
+import { Controller, useFormContext } from "react-hook-form";
 import useSWR from "swr";
+import type { DownloadFormValues } from "./download-form";
 import {
 	Select,
 	SelectContent,
@@ -7,9 +10,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
-import { Controller, useFormContext } from "react-hook-form";
-import type { DownloadFormValues } from "./download-form";
-import { useEffect } from "react";
 
 const getStringValue = (lecture: Multipartus.Lecture) =>
 	lecture.id.ID.join(";");
@@ -27,6 +27,7 @@ const getSession = (
 };
 
 export function LectureSelector(props: { department: string; code: string }) {
+	const { control, setValue } = useFormContext<DownloadFormValues>();
 	const { idToken } = useLogto();
 	const { data: sessions } = useSWR<Record<string, [number, number]>>([
 		"session",
@@ -37,12 +38,11 @@ export function LectureSelector(props: { department: string; code: string }) {
 		idToken,
 	]);
 
-	const { control, setValue } = useFormContext<DownloadFormValues>();
 	useEffect(() => {
 		if (lectures) {
 			setValue("lecture", lectures[0].id.ID);
 		}
-	}, [lectures])
+	}, [lectures]);
 
 	if (!lectures || !sessions) {
 		return <div>Loading...</div>;
@@ -55,7 +55,7 @@ export function LectureSelector(props: { department: string; code: string }) {
 			render={({ field }) => (
 				<Select
 					onValueChange={(value) => field.onChange(value.split(";"))}
-					defaultValue={getStringValue(lectures[0])}
+					value={getStringValue(lectures[0])}
 				>
 					<SelectTrigger>
 						<SelectValue />

@@ -15,8 +15,9 @@ export type DownloadFormValues = {
 export function DownloadForm(props: { department: string; code: string }) {
 	const methods = useForm<DownloadFormValues>({
 		defaultValues: {
-			videos: []
-		}
+			lecture: undefined,
+			videos: [],
+		},
 	});
 
 	const onSubmit: SubmitHandler<DownloadFormValues> = (data) => {

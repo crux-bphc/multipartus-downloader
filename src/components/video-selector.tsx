@@ -37,7 +37,7 @@ const Videos = () => {
 
 	return (
 		<div className="grid grid-cols-3 gap-2">
-			{videos?.toReversed().map((video, i) => (
+			{videos.map((video, i) => (
 				<div
 					key={video.ttid}
 					className="flex flex-col justify-around rounded-lg border"
@@ -54,7 +54,7 @@ const Videos = () => {
 								className="flex items-center gap-2 text-lg truncate text-ellipsis"
 							>
 								<span className="bg-primary text-primary-foreground px-1 rounded">
-									{i + 1}
+									{videos.length - i}
 								</span>
 								{video.topic}
 							</label>
