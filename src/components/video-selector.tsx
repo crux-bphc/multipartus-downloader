@@ -1,5 +1,8 @@
 import { useLogto } from "@/lib/logto";
+import { useEffect } from "react";
+import { Controller, useFormContext } from "react-hook-form";
 import useSWR from "swr";
+import type { DownloadFormValues } from "./download-form";
 import { Button } from "./ui/button";
 import {
 	Card,
@@ -11,13 +14,23 @@ import {
 } from "./ui/card";
 import { Checkbox } from "./ui/checkbox";
 import { ScrollArea } from "./ui/scroll-area";
-
 const Videos = (props: { session: number; subjectId: number }) => {
 	const { idToken } = useLogto();
 	const { data: videos } = useSWR<Multipartus.Video[]>([
 		`lecture/${props.session}/${props.subjectId}`,
 		idToken,
 	]);
+	const { control, setValue } = useFormContext<DownloadFormValues>();
+
+	useEffect(() => {
+		if (videos) {
+			setValue(
+				"videos",
+				videos.map((video) => ({ selected: true, ttid: video.ttid })),
+			);
+		}
+	}, [videos]);
+
 	return (
 		<div className="grid grid-cols-3 gap-2">
 			{videos?.toReversed().map((video, i) => (
@@ -41,7 +54,18 @@ const Videos = (props: { session: number; subjectId: number }) => {
 								</span>
 								{video.topic}
 							</label>
-							<Checkbox id={`video-${video.ttid}`} />
+							<Controller
+								name={`videos.${i}.selected`}
+								control={control}
+								render={({ field }) => (
+									<Checkbox
+										id={`video-${video.ttid}`}
+										checked={field.value}
+										onCheckedChange={field.onChange}
+										ref={field.ref}
+									/>
+								)}
+							/>
 						</div>
 					</div>
 				</div>
@@ -51,6 +75,7 @@ const Videos = (props: { session: number; subjectId: number }) => {
 };
 
 export const VideoSelector = () => {
+	const { getValues, setValue } = useFormContext<DownloadFormValues>();
 	return (
 		<Card>
 			<CardHeader>
@@ -68,8 +93,35 @@ export const VideoSelector = () => {
 				<Button disabled variant="link" className="mr-auto">
 					(0) Selected
 				</Button>
-				<Button variant="secondary">Deselect All</Button>
-				<Button>Select All</Button>
+				<Button
+					type="button"
+					variant="secondary"
+					onClick={() => {
+						setValue(
+							"videos",
+							getValues("videos").map((video) => ({
+								...video,
+								selected: false,
+							})),
+						);
+					}}
+				>
+					Deselect All
+				</Button>
+				<Button
+					type="button"
+					onClick={() => {
+						setValue(
+							"videos",
+							getValues("videos").map((video) => ({
+								...video,
+								selected: true,
+							})),
+						);
+					}}
+				>
+					Select All
+				</Button>
 			</CardFooter>
 		</Card>
 	);
