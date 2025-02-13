@@ -1,4 +1,7 @@
-import useSWR from "swr";
+import { fetchLex } from "@/lib/lex";
+import { atom, useAtomValue } from "jotai";
+import { loadable } from "jotai/utils";
+import { lectureAtom } from "./download-form";
 import { Button } from "./ui/button";
 import {
 	Card,
@@ -11,16 +14,31 @@ import {
 import { Checkbox } from "./ui/checkbox";
 import { ScrollArea } from "./ui/scroll-area";
 
-const Videos = () => {
-	const { data: videos } = useSWR<Multipartus.Video[]>("lecture/1249/2628604");
+const videosAtom = loadable(
+	atom(async (get) => {
+		const lecture = get(lectureAtom);
+		if (!lecture) {
+			return [];
+		}
 
-	if (!videos) {
+		const videos = await fetchLex<Multipartus.Video[]>(
+			`lecture/${lecture.join("/")}`,
+		);
+
+		return videos;
+	}),
+);
+
+const Videos = () => {
+	const videos = useAtomValue(videosAtom);
+
+	if (videos.state !== "hasData") {
 		return <div>Loading...</div>;
 	}
 
 	return (
 		<div className="grid grid-cols-3 gap-2">
-			{videos.map((video, i) => (
+			{videos.data.map((video, i) => (
 				<div
 					key={video.ttid}
 					className="flex flex-col justify-around rounded-lg border"
@@ -37,7 +55,7 @@ const Videos = () => {
 								className="flex items-center gap-2 text-lg truncate text-ellipsis"
 							>
 								<span className="bg-primary text-primary-foreground px-1 rounded">
-									{videos.length - i}
+									{videos.data.length - i}
 								</span>
 								{video.topic}
 							</label>
@@ -60,10 +78,14 @@ export const VideoSelector = () => {
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<ScrollArea className="h-86 pr-4">{/* <Videos /> */}</ScrollArea>
+				<ScrollArea className="h-86 pr-4">
+					<Videos />
+				</ScrollArea>
 			</CardContent>
 			<CardFooter className="flex gap-2">
-				<span className="text-bold">(0) Selected</span>
+				<span className="text-muted-foreground text-bold mr-auto">
+					(0) Selected
+				</span>
 				<Button type="button" variant="secondary">
 					Deselect All
 				</Button>
