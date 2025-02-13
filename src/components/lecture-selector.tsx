@@ -1,3 +1,4 @@
+import { useLogto } from "@/lib/logto";
 import useSWR from "swr";
 import {
 	Select,
@@ -6,7 +7,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
-import { useLogto } from "@/lib/logto";
 
 export function LectureSelector(props: { department: string; code: string }) {
 	const { idToken } = useLogto();

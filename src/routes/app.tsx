@@ -1,4 +1,4 @@
-import { LectureSelector } from "@/components/lecture-selector";
+import { DownloadForm } from "@/components/download-form";
 import { Button } from "@/components/ui/button";
 import {
 	Command,
@@ -13,9 +13,8 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import { VideoSelector } from "@/components/video-selector";
 import { useLogto } from "@/lib/logto";
-import { BirdIcon, DownloadIcon } from "lucide-react";
+import { BirdIcon } from "lucide-react";
 import { useState } from "react";
 import useSWR from "swr";
 
@@ -68,20 +67,6 @@ function SearchSubject(props: {
 	);
 }
 
-function SubjectView(props: { department: string; code: string }) {
-	return (
-		<div className="flex flex-col gap-6">
-			<LectureSelector department={props.department} code={props.code} />
-			<VideoSelector />
-			<Button size="lg">
-				Download
-				<DownloadIcon />
-			</Button>
-		</div>
-	);
-}
-1;
-
 export const DownloadPage = () => {
 	const [subject, setSubject] = useState<[string, string] | null>(null);
 	const { idToken } = useLogto();
@@ -96,7 +81,7 @@ export const DownloadPage = () => {
 			<SearchSubject selectSubject={setSubject} />
 			<br />
 			{subject ? (
-				<SubjectView department={subject[0]} code={subject[1]} />
+				<DownloadForm department={subject[0]} code={subject[1]} />
 			) : (
 				<div className="flex flex-col gap-6 justify-center items-center py-12">
 					<BirdIcon className="w-64 h-64 text-muted-foreground" />
