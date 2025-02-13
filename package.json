@@ -16,7 +16,13 @@
   "license": "MIT",
   "dependencies": {
     "@fabianlars/tauri-plugin-oauth": "2",
+    "@fontsource-variable/lexend": "^5.1.2",
     "@logto/browser": "^3.0.3",
+    "@radix-ui/react-checkbox": "^1.1.4",
+    "@radix-ui/react-dialog": "^1.1.6",
+    "@radix-ui/react-popover": "^1.1.6",
+    "@radix-ui/react-scroll-area": "^1.2.3",
+    "@radix-ui/react-select": "^2.1.6",
     "@radix-ui/react-slot": "^1.1.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
@@ -24,12 +30,16 @@
     "@vitejs/plugin-react": "^4.3.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "1.0.0",
     "lucide-react": "^0.474.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-hook-form": "^7.54.2",
     "react-router": "^7.1.5",
+    "swr": "^2.3.2",
     "tailwind-merge": "^3.0.1",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "use-debounce": "^10.0.4"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
