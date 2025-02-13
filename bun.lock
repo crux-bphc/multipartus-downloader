@@ -20,6 +20,7 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "1.0.0",
+        "jotai": "^2.12.0",
         "lucide-react": "^0.474.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
@@ -415,6 +416,8 @@
     "jiti": ["jiti@2.4.2", "", { "bin": { "jiti": "lib/jiti-cli.mjs" } }, "sha512-rg9zJN+G4n2nfJl5MW3BMygZX56zKPNVEYYqq7adpmMh4Jn2QNEwhvQlFy6jPVdcod7txZtKHWnyZiA3a0zP7A=="],
 
     "jose": ["jose@5.9.6", "", {}, "sha512-AMlnetc9+CV9asI19zHmrgS/WYsWUwCn2R7RzlbJWD7F9eWYUTGyBmU9o6PxngtLGOiDGPRu+Uc4fhKzbpteZQ=="],
+
+    "jotai": ["jotai@2.12.0", "", { "peerDependencies": { "@types/react": ">=17.0.0", "react": ">=17.0.0" }, "optionalPeers": ["@types/react", "react"] }, "sha512-j5B4NmUw8gbuN7AG4NufWw00rfpm6hexL2CVhKD7juoP2YyD9FEUV5ar921JMvadyrxQhU1NpuKUL3QfsAlVpA=="],
 
     "js-base64": ["js-base64@3.7.7", "", {}, "sha512-7rCnleh0z2CkXhH67J8K1Ytz0b2Y+yxTPL+/KOJoa20hfnVQ/3/T6W/KflYI4bRHRagNeXeU2bkNGI3v1oS/lw=="],
 

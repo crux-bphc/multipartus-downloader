@@ -1,7 +1,10 @@
+import { atom } from "jotai";
 import { DownloadIcon } from "lucide-react";
 import { LectureSelector } from "./lecture-selector";
 import { Button } from "./ui/button";
 import { VideoSelector } from "./video-selector";
+
+export const lectureAtom = atom<[number, number] | undefined>();
 
 export function DownloadForm(props: { department: string; code: string }) {
 	return (

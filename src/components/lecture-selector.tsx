@@ -1,4 +1,7 @@
+import { useAtom } from "jotai";
+import { useEffect } from "react";
 import useSWR from "swr";
+import { lectureAtom } from "./download-form";
 import {
 	Select,
 	SelectContent,
@@ -6,9 +9,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
-
-const getStringValue = (lecture: Multipartus.Lecture) =>
-	lecture.id.ID.join(";");
 
 const getSession = (
 	sessions: Multipartus.Sessions,
@@ -23,25 +23,37 @@ const getSession = (
 };
 
 export function LectureSelector(props: { department: string; code: string }) {
+	const [lecture, setLecture] = useAtom(lectureAtom);
 	const { data: sessions } = useSWR<Multipartus.Sessions>("session");
 	const { data: lectures } = useSWR<Multipartus.Lecture[]>(
 		`subject/${props.department}/${props.code}/lectures`,
 	);
+
+	useEffect(() => {
+		if (lectures && lectures.length > 0) {
+			setLecture(lectures[0].id.ID);
+		}
+	}, [lectures]);
 
 	if (!lectures || !sessions) {
 		return <div>Loading...</div>;
 	}
 
 	return (
-		<Select>
+		<Select
+			onValueChange={(value) =>
+				setLecture(value.split(";").map(Number) as [number, number])
+			}
+			value={lecture ? lecture.join(";") : undefined}
+		>
 			<SelectTrigger>
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent>
 				{lectures.map((lecture) => (
 					<SelectItem
-						key={getStringValue(lecture)}
-						value={getStringValue(lecture)}
+						key={lecture.id.ID.join(";")}
+						value={lecture.id.ID.join(";")}
 					>
 						{[
 							lecture.section,
