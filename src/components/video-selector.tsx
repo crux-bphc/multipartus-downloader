@@ -1,9 +1,5 @@
-import { cn } from "@/lib/utils";
-import { useEffect, useMemo } from "react";
-import { Controller, useFormContext } from "react-hook-form";
 import useSWR from "swr";
-import type { DownloadFormValues } from "./download-form";
-import { Button, buttonVariants } from "./ui/button";
+import { Button } from "./ui/button";
 import {
 	Card,
 	CardContent,
@@ -14,21 +10,9 @@ import {
 } from "./ui/card";
 import { Checkbox } from "./ui/checkbox";
 import { ScrollArea } from "./ui/scroll-area";
-const Videos = () => {
-	const { control, setValue, watch } = useFormContext<DownloadFormValues>();
-	const lectureId = watch("lecture");
-	const { data: videos } = useSWR<Multipartus.Video[]>(
-		lectureId ? `lecture/${lectureId.join("/")}` : null,
-	);
 
-	useEffect(() => {
-		if (videos) {
-			setValue(
-				"videos",
-				videos.map((video) => ({ selected: true, ttid: video.ttid })),
-			);
-		}
-	}, [videos]);
+const Videos = () => {
+	const { data: videos } = useSWR<Multipartus.Video[]>("lecture/1249/2628604");
 
 	if (!videos) {
 		return <div>Loading...</div>;
@@ -57,18 +41,7 @@ const Videos = () => {
 								</span>
 								{video.topic}
 							</label>
-							<Controller
-								name={`videos.${i}.selected`}
-								control={control}
-								render={({ field }) => (
-									<Checkbox
-										id={`video-${video.ttid}`}
-										checked={field.value}
-										onCheckedChange={field.onChange}
-										ref={field.ref}
-									/>
-								)}
-							/>
+							<Checkbox id={`video-${video.ttid}`} />
 						</div>
 					</div>
 				</div>
@@ -78,12 +51,6 @@ const Videos = () => {
 };
 
 export const VideoSelector = () => {
-	const { setValue, watch } = useFormContext<DownloadFormValues>();
-	const videos = watch("videos");
-	const selectedCount = useMemo(
-		() => videos.reduce((acc, { selected }) => (selected ? acc + 1 : acc), 0),
-		[videos],
-	);
 	return (
 		<Card>
 			<CardHeader>
@@ -93,43 +60,14 @@ export const VideoSelector = () => {
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<ScrollArea className="h-86 pr-4">
-					<Videos />
-				</ScrollArea>
+				<ScrollArea className="h-86 pr-4">{/* <Videos /> */}</ScrollArea>
 			</CardContent>
 			<CardFooter className="flex gap-2">
-				<span className={cn("mr-auto", buttonVariants({ variant: "link" }))}>
-					({selectedCount}) Selected
-				</span>
-				<Button
-					type="button"
-					variant="secondary"
-					onClick={() => {
-						setValue(
-							"videos",
-							videos.map((video) => ({
-								...video,
-								selected: false,
-							})),
-						);
-					}}
-				>
+				<span className="text-bold">(0) Selected</span>
+				<Button type="button" variant="secondary">
 					Deselect All
 				</Button>
-				<Button
-					type="button"
-					onClick={() => {
-						setValue(
-							"videos",
-							videos.map((video) => ({
-								...video,
-								selected: true,
-							})),
-						);
-					}}
-				>
-					Select All
-				</Button>
+				<Button type="button">Select All</Button>
 			</CardFooter>
 		</Card>
 	);
