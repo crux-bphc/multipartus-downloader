@@ -10,6 +10,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
+import { Skeleton } from "./ui/skeleton";
 
 const getSessionLabel = (
 	sessions: Multipartus.Sessions,
@@ -59,7 +60,7 @@ export function LectureSelector() {
 	}, [lectures]);
 
 	if (lectures.state !== "hasData") {
-		return <div>Loading...</div>;
+		return <Skeleton className="h-9" />;
 	}
 
 	return (

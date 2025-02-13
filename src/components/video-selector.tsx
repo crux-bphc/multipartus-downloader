@@ -13,6 +13,7 @@ import {
 } from "./ui/card";
 import { Checkbox } from "./ui/checkbox";
 import { ScrollArea } from "./ui/scroll-area";
+import { Skeleton } from "./ui/skeleton";
 
 const videosAtom = loadable(
 	atom(async (get) => {
@@ -33,7 +34,7 @@ const Videos = () => {
 	const videos = useAtomValue(videosAtom);
 
 	if (videos.state !== "hasData") {
-		return <div>Loading...</div>;
+		return <Skeleton className="h-full" />;
 	}
 
 	return (

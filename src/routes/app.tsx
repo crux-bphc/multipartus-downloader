@@ -38,7 +38,7 @@ function SearchSubject() {
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
-				<Button variant="outline" className="flex mx-auto w-lg text-lg">
+				<Button variant="outline" className="flex mx-auto w-lg text-lg h-12">
 					{label}
 				</Button>
 			</PopoverTrigger>
