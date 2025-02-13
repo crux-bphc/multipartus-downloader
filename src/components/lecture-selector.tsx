@@ -14,7 +14,7 @@ const getStringValue = (lecture: Multipartus.Lecture) =>
 	lecture.id.ID.join(";");
 
 const getSession = (
-	sessions: Record<string, [number, number]>,
+	sessions: Multipartus.Sessions,
 	lecture: Multipartus.Lecture,
 ) => {
 	const session = lecture.impartus_session.toString();
@@ -27,8 +27,7 @@ const getSession = (
 
 export function LectureSelector(props: { department: string; code: string }) {
 	const { control, setValue } = useFormContext<DownloadFormValues>();
-	const { data: sessions } =
-		useSWR<Record<string, [number, number]>>("session");
+	const { data: sessions } = useSWR<Multipartus.Sessions>("session");
 	const { data: lectures } = useSWR<Multipartus.Lecture[]>(
 		`subject/${props.department}/${props.code}/lectures`,
 	);
@@ -50,7 +49,7 @@ export function LectureSelector(props: { department: string; code: string }) {
 			render={({ field }) => (
 				<Select
 					onValueChange={(value) => field.onChange(value.split(";"))}
-					defaultValue={field.value.join(";")}
+					defaultValue={field.value?.join(";")}
 				>
 					<SelectTrigger>
 						<SelectValue />
@@ -61,8 +60,11 @@ export function LectureSelector(props: { department: string; code: string }) {
 								key={getStringValue(lecture)}
 								value={getStringValue(lecture)}
 							>
-								{lecture.section} | {lecture.professor} |{" "}
-								{getSession(sessions, lecture)}
+								{[
+									lecture.section,
+									lecture.professor,
+									getSession(sessions, lecture),
+								].join(" | ")}
 							</SelectItem>
 						))}
 					</SelectContent>

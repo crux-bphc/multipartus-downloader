@@ -16,6 +16,7 @@ import {
 import { BirdIcon } from "lucide-react";
 import { useState } from "react";
 import useSWR from "swr";
+import { useDebounce } from "use-debounce";
 
 function SearchSubject(props: {
 	selectSubject: (subject: [string, string]) => void;
@@ -23,8 +24,9 @@ function SearchSubject(props: {
 	const [label, setLabel] = useState("Search subject");
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
+	const [debouncedSearch] = useDebounce(search, 500);
 	const { data: subjects } = useSWR<Multipartus.Subject[]>(
-		`subject/search?q=${encodeURIComponent(search)}`,
+		`subject/search?q=${encodeURIComponent(debouncedSearch)}`,
 	);
 
 	const formatSubject = (subject: Multipartus.Subject) =>

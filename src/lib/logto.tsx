@@ -37,7 +37,6 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 		setIsAuthenticated(await logtoClient.isAuthenticated());
 	}
 
-
 	useEffect(() => {
 		updateAuthState();
 	});

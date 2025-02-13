@@ -1,4 +1,3 @@
-import { fetchLex } from "@/lib/lex";
 import { DownloadIcon } from "lucide-react";
 import { FormProvider, type SubmitHandler, useForm } from "react-hook-form";
 import { LectureSelector } from "./lecture-selector";
@@ -6,7 +5,7 @@ import { Button } from "./ui/button";
 import { VideoSelector } from "./video-selector";
 
 export type DownloadFormValues = {
-	lecture: [number, number];
+	lecture?: [number, number];
 	videos: {
 		selected: boolean;
 		ttid: number;
@@ -15,15 +14,8 @@ export type DownloadFormValues = {
 
 export function DownloadForm(props: { department: string; code: string }) {
 	const methods = useForm<DownloadFormValues>({
-		defaultValues: async () => {
-			const lectures = await fetchLex<Multipartus.Lecture[]>(
-				`subject/${props.department}/${props.code}/lectures`,
-			);
-
-			return {
-				lecture: lectures[0].id.ID,
-				videos: [],
-			};
+		defaultValues: {
+			videos: [],
 		},
 	});
 

@@ -25,4 +25,6 @@ namespace Multipartus {
 		topic: string;
 		coverpic: string;
 	}
+
+	export type Sessions = Record<string, [number, number]>;
 }

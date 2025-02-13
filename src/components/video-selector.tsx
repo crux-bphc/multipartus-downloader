@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { cn } from "@/lib/utils";
+import { useEffect, useMemo } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import useSWR from "swr";
 import type { DownloadFormValues } from "./download-form";
-import { Button } from "./ui/button";
+import { Button, buttonVariants } from "./ui/button";
 import {
 	Card,
 	CardContent,
@@ -77,7 +78,12 @@ const Videos = () => {
 };
 
 export const VideoSelector = () => {
-	const { getValues, setValue } = useFormContext<DownloadFormValues>();
+	const { setValue, watch } = useFormContext<DownloadFormValues>();
+	const videos = watch("videos");
+	const selectedCount = useMemo(
+		() => videos.reduce((acc, { selected }) => (selected ? acc + 1 : acc), 0),
+		[videos],
+	);
 	return (
 		<Card>
 			<CardHeader>
@@ -92,16 +98,16 @@ export const VideoSelector = () => {
 				</ScrollArea>
 			</CardContent>
 			<CardFooter className="flex gap-2">
-				<Button disabled variant="link" className="mr-auto">
-					(0) Selected
-				</Button>
+				<span className={cn("mr-auto", buttonVariants({ variant: "link" }))}>
+					({selectedCount}) Selected
+				</span>
 				<Button
 					type="button"
 					variant="secondary"
 					onClick={() => {
 						setValue(
 							"videos",
-							getValues("videos").map((video) => ({
+							videos.map((video) => ({
 								...video,
 								selected: false,
 							})),
@@ -115,7 +121,7 @@ export const VideoSelector = () => {
 					onClick={() => {
 						setValue(
 							"videos",
-							getValues("videos").map((video) => ({
+							videos.map((video) => ({
 								...video,
 								selected: true,
 							})),
