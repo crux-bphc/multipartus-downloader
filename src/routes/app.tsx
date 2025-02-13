@@ -1,4 +1,4 @@
-import { DownloadForm } from "@/components/download-form";
+import { DownloadForm, subjectAtom } from "@/components/download-form";
 import { Button } from "@/components/ui/button";
 import {
 	Command,
@@ -13,24 +13,27 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import { BirdIcon } from "lucide-react";
-import { useState } from "react";
-import useSWR from "swr";
+import { fetchLex } from "@/lib/lex";
+import { useSetAtom } from "jotai";
+import { useEffect, useState } from "react";
 import { useDebounce } from "use-debounce";
 
-function SearchSubject(props: {
-	selectSubject: (subject: [string, string]) => void;
-}) {
+function SearchSubject() {
+	const setSelectedSubject = useSetAtom(subjectAtom);
 	const [label, setLabel] = useState("Search subject");
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
 	const [debouncedSearch] = useDebounce(search, 500);
-	const { data: subjects } = useSWR<Multipartus.Subject[]>(
-		`subject/search?q=${encodeURIComponent(debouncedSearch)}`,
-	);
+	const [subjects, setSubjects] = useState<Multipartus.Subject[]>([]);
 
 	const formatSubject = (subject: Multipartus.Subject) =>
 		`${subject.department} ${subject.code} - ${subject.name}`;
+
+	useEffect(() => {
+		fetchLex<Multipartus.Subject[]>(
+			`subject/search?q=${encodeURIComponent(debouncedSearch)}`,
+		).then(setSubjects);
+	}, [debouncedSearch]);
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -50,7 +53,7 @@ function SearchSubject(props: {
 									key={subject.id.ID.join()}
 									value={subject.id.ID.join(";")}
 									onSelect={() => {
-										props.selectSubject(subject.id.ID);
+										setSelectedSubject(subject.id.ID);
 										setLabel(formatSubject(subject));
 										setOpen(false);
 									}}
@@ -67,20 +70,13 @@ function SearchSubject(props: {
 }
 
 export const DownloadPage = () => {
-	const [subject, setSubject] = useState<[string, string] | null>(null);
 	return (
 		<main className="mx-auto container">
 			<br />
-			<SearchSubject selectSubject={setSubject} />
+			<SearchSubject />
 			<br />
-			{subject ? (
-				<DownloadForm department={subject[0]} code={subject[1]} />
-			) : (
-				<div className="flex flex-col gap-6 justify-center items-center py-12">
-					<BirdIcon className="w-64 h-64 text-muted-foreground" />
-					<p className="leading-7">no subject selected</p>
-				</div>
-			)}
+			<DownloadForm />
+			<br />
 		</main>
 	);
 };

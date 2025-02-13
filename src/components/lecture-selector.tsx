@@ -1,7 +1,8 @@
-import { useAtom } from "jotai";
+import { fetchLex } from "@/lib/lex";
+import { atom, useAtom, useAtomValue } from "jotai";
+import { loadable } from "jotai/utils";
 import { useEffect } from "react";
-import useSWR from "swr";
-import { lectureAtom } from "./download-form";
+import { lectureAtom, subjectAtom } from "./download-form";
 import {
 	Select,
 	SelectContent,
@@ -10,7 +11,7 @@ import {
 	SelectValue,
 } from "./ui/select";
 
-const getSession = (
+const getSessionLabel = (
 	sessions: Multipartus.Sessions,
 	lecture: Multipartus.Lecture,
 ) => {
@@ -22,20 +23,42 @@ const getSession = (
 	return "unknown session";
 };
 
-export function LectureSelector(props: { department: string; code: string }) {
+const sessionsAtom = atom(async () => {
+	const sessions = await fetchLex<Multipartus.Sessions>("session");
+	return sessions;
+});
+
+const lecturesAtom = loadable(
+	atom(async (get) => {
+		const subject = get(subjectAtom);
+		const sessions = await get(sessionsAtom);
+		const lectures = await fetchLex<Multipartus.Lecture[]>(
+			`subject/${subject?.join("/")}/lectures`,
+		);
+
+		return lectures.map((lecture) => ({
+			id: lecture.id.ID,
+			value: lecture.id.ID.join(";"),
+			label: [
+				lecture.section,
+				lecture.professor,
+				getSessionLabel(sessions, lecture),
+			].join(" | "),
+		}));
+	}),
+);
+
+export function LectureSelector() {
 	const [lecture, setLecture] = useAtom(lectureAtom);
-	const { data: sessions } = useSWR<Multipartus.Sessions>("session");
-	const { data: lectures } = useSWR<Multipartus.Lecture[]>(
-		`subject/${props.department}/${props.code}/lectures`,
-	);
+	const lectures = useAtomValue(lecturesAtom);
 
 	useEffect(() => {
-		if (lectures && lectures.length > 0) {
-			setLecture(lectures[0].id.ID);
+		if (lectures.state === "hasData" && lectures.data.length > 0) {
+			setLecture(lectures.data[0].id);
 		}
 	}, [lectures]);
 
-	if (!lectures || !sessions) {
+	if (lectures.state !== "hasData") {
 		return <div>Loading...</div>;
 	}
 
@@ -50,16 +73,9 @@ export function LectureSelector(props: { department: string; code: string }) {
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent>
-				{lectures.map((lecture) => (
-					<SelectItem
-						key={lecture.id.ID.join(";")}
-						value={lecture.id.ID.join(";")}
-					>
-						{[
-							lecture.section,
-							lecture.professor,
-							getSession(sessions, lecture),
-						].join(" | ")}
+				{lectures.data.map((lecture) => (
+					<SelectItem key={lecture.value} value={lecture.value}>
+						{lecture.label}
 					</SelectItem>
 				))}
 			</SelectContent>
