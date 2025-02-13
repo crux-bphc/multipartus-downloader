@@ -16,7 +16,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Skeleton } from "./ui/skeleton";
 
 const videosAtom = loadable(
-	atom(async (get) => {
+	atom(async (get, { signal }) => {
 		const lecture = get(lectureAtom);
 		if (!lecture) {
 			return [];
@@ -24,6 +24,7 @@ const videosAtom = loadable(
 
 		const videos = await fetchLex<Multipartus.Video[]>(
 			`lecture/${lecture.join("/")}`,
+			{ signal },
 		);
 
 		return videos;

@@ -24,8 +24,8 @@ const getSessionLabel = (
 	return "unknown session";
 };
 
-const sessionsAtom = atom(async () => {
-	const sessions = await fetchLex<Multipartus.Sessions>("session");
+const sessionsAtom = atom(async (_, { signal }) => {
+	const sessions = await fetchLex<Multipartus.Sessions>("session", { signal });
 	return sessions;
 });
 
@@ -50,12 +50,12 @@ const lecturesAtom = loadable(
 );
 
 export function LectureSelector() {
-	const [lecture, setLecture] = useAtom(lectureAtom);
+	const [selectedLecture, selectLecture] = useAtom(lectureAtom);
 	const lectures = useAtomValue(lecturesAtom);
 
 	useEffect(() => {
 		if (lectures.state === "hasData" && lectures.data.length > 0) {
-			setLecture(lectures.data[0].id);
+			selectLecture(lectures.data[0].id);
 		}
 	}, [lectures]);
 
@@ -66,9 +66,9 @@ export function LectureSelector() {
 	return (
 		<Select
 			onValueChange={(value) =>
-				setLecture(value.split(";").map(Number) as [number, number])
+				selectLecture(value.split(";").map(Number) as [number, number])
 			}
-			value={lecture ? lecture.join(";") : undefined}
+			value={selectedLecture ? selectedLecture.join(";") : undefined}
 		>
 			<SelectTrigger>
 				<SelectValue />
