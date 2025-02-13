@@ -1,5 +1,4 @@
 import { fetchLex } from "@/lib/lex";
-import { useLogto } from "@/lib/logto";
 import { DownloadIcon } from "lucide-react";
 import { FormProvider, type SubmitHandler, useForm } from "react-hook-form";
 import { LectureSelector } from "./lecture-selector";
@@ -15,14 +14,11 @@ export type DownloadFormValues = {
 };
 
 export function DownloadForm(props: { department: string; code: string }) {
-	const { idToken } = useLogto();
 	const methods = useForm<DownloadFormValues>({
 		defaultValues: async () => {
-			const lectures = await fetchLex<Multipartus.Lecture[]>([
+			const lectures = await fetchLex<Multipartus.Lecture[]>(
 				`subject/${props.department}/${props.code}/lectures`,
-				// biome-ignore lint/style/noNonNullAssertion: has to be non-null
-				idToken!,
-			]);
+			);
 
 			return {
 				lecture: lectures[0].id.ID,

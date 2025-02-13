@@ -13,7 +13,6 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import { useLogto } from "@/lib/logto";
 import { BirdIcon } from "lucide-react";
 import { useState } from "react";
 import useSWR from "swr";
@@ -24,11 +23,9 @@ function SearchSubject(props: {
 	const [label, setLabel] = useState("Search subject");
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
-	const { idToken } = useLogto();
-	const { data: subjects } = useSWR<Multipartus.Subject[]>([
+	const { data: subjects } = useSWR<Multipartus.Subject[]>(
 		`subject/search?q=${encodeURIComponent(search)}`,
-		idToken,
-	]);
+	);
 
 	const formatSubject = (subject: Multipartus.Subject) =>
 		`${subject.department} ${subject.code} - ${subject.name}`;
@@ -69,12 +66,6 @@ function SearchSubject(props: {
 
 export const DownloadPage = () => {
 	const [subject, setSubject] = useState<[string, string] | null>(null);
-	const { idToken } = useLogto();
-
-	if (!idToken) {
-		return "Loading...";
-	}
-
 	return (
 		<main className="mx-auto container">
 			<br />

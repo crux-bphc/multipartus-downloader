@@ -1,4 +1,3 @@
-import { useLogto } from "@/lib/logto";
 import { useEffect } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import useSWR from "swr";
@@ -17,9 +16,8 @@ import { ScrollArea } from "./ui/scroll-area";
 const Videos = () => {
 	const { control, setValue, watch } = useFormContext<DownloadFormValues>();
 	const lectureId = watch("lecture");
-	const { idToken } = useLogto();
 	const { data: videos } = useSWR<Multipartus.Video[]>(
-		lectureId ? [`lecture/${lectureId.join("/")}`, idToken] : null,
+		lectureId ? `lecture/${lectureId.join("/")}` : null,
 	);
 
 	useEffect(() => {

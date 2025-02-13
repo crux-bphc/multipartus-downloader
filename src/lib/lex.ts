@@ -1,7 +1,9 @@
-export function fetchLex<T>([url, token]: [string, string]): Promise<T> {
-	return fetch(`https://lex.local.crux-bphc.com/impartus/${url}`, {
+import { logtoClient } from "./logto";
+
+export async function fetchLex<T>(url: string): Promise<T> {
+	return fetch(`https://lex.crux-bphc.com/api/impartus/${url}`, {
 		headers: {
-			Authorization: `Bearer ${token}`,
+			Authorization: `Bearer ${await logtoClient.getIdToken()}`,
 		},
 	}).then((res) => res.json());
 }

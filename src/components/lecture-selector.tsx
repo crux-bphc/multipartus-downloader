@@ -1,4 +1,3 @@
-import { useLogto } from "@/lib/logto";
 import { useEffect } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import useSWR from "swr";
@@ -28,15 +27,11 @@ const getSession = (
 
 export function LectureSelector(props: { department: string; code: string }) {
 	const { control, setValue } = useFormContext<DownloadFormValues>();
-	const { idToken } = useLogto();
-	const { data: sessions } = useSWR<Record<string, [number, number]>>([
-		"session",
-		idToken,
-	]);
-	const { data: lectures } = useSWR<Multipartus.Lecture[]>([
+	const { data: sessions } =
+		useSWR<Record<string, [number, number]>>("session");
+	const { data: lectures } = useSWR<Multipartus.Lecture[]>(
 		`subject/${props.department}/${props.code}/lectures`,
-		idToken,
-	]);
+	);
 
 	useEffect(() => {
 		if (lectures) {

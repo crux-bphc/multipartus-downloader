@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router";
 
-const logtoClient = new LogtoClient({
+export const logtoClient = new LogtoClient({
 	endpoint: import.meta.env.VITE_LOGTO_ENDPOINT,
 	appId: import.meta.env.VITE_LOGTO_APP_ID,
 	scopes: ["openid", "email", "profile", "offline_access"],
@@ -19,12 +19,10 @@ logtoClient.adapter.navigate = (url) => openUrl(url);
 
 const LogtoContext = createContext<{
 	logtoClient: LogtoClient;
-	idToken?: string;
 	isAuthenticated: boolean;
 	updateAuthState: () => Promise<void>;
 }>({
 	logtoClient,
-	idToken: undefined,
 	isAuthenticated: false,
 	updateAuthState: async () => {
 		throw Error("Not implemented");
@@ -32,7 +30,6 @@ const LogtoContext = createContext<{
 });
 
 export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
-	const [idToken, setIdToken] = useState<string | undefined>(undefined);
 	const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 	const navigate = useNavigate();
 
@@ -40,20 +37,10 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 		setIsAuthenticated(await logtoClient.isAuthenticated());
 	}
 
-	async function updateIdToken() {
-		setIdToken((await logtoClient.getIdToken()) ?? undefined);
-	}
 
 	useEffect(() => {
 		updateAuthState();
 	});
-
-	useEffect(() => {
-		updateIdToken();
-		// Refresh id token every 30 minutes
-		const id = setInterval(updateIdToken, 1000 * 60 * 30);
-		return () => clearInterval(id);
-	}, [isAuthenticated]);
 
 	useEffect(() => {
 		if (isAuthenticated) {
@@ -65,7 +52,7 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 
 	return (
 		<LogtoContext.Provider
-			value={{ logtoClient, idToken, isAuthenticated, updateAuthState }}
+			value={{ logtoClient, isAuthenticated, updateAuthState }}
 		>
 			{children}
 		</LogtoContext.Provider>
