@@ -7,11 +7,16 @@ import { VideoSelector } from "./video-selector";
 // selected subject
 export const subjectAtom = atom<[string, string]>();
 
-// selected lectures corresponding to the selected subject
+// selected lecture section for the selected subject
 export const lectureAtom = atom<[number, number]>();
+
+// selected video ttids for selected lecture
+// -1 if video is not selected, {ttid} if selected
+export const ttidsAtom = atom<number[]>([]);
 
 export function DownloadForm() {
 	const subject = useAtomValue(subjectAtom);
+
 	return (
 		<div>
 			{subject ? (

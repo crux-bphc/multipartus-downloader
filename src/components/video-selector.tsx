@@ -1,7 +1,8 @@
 import { fetchLex } from "@/lib/lex";
-import { atom, useAtomValue } from "jotai";
+import { atom, useAtom, useAtomValue } from "jotai";
 import { loadable } from "jotai/utils";
-import { lectureAtom } from "./download-form";
+import { useEffect, useMemo } from "react";
+import { lectureAtom, ttidsAtom } from "./download-form";
 import { Button } from "./ui/button";
 import {
 	Card,
@@ -33,6 +34,13 @@ const videosAtom = loadable(
 
 const Videos = () => {
 	const videos = useAtomValue(videosAtom);
+	const [ttids, setTTIDs] = useAtom(ttidsAtom);
+
+	useEffect(() => {
+		if (videos.state === "hasData") {
+			setTTIDs(videos.data.map((video) => video.ttid));
+		}
+	}, [videos]);
 
 	if (videos.state !== "hasData") {
 		return <Skeleton className="h-full" />;
@@ -61,12 +69,60 @@ const Videos = () => {
 								</span>
 								{video.topic}
 							</label>
-							<Checkbox id={`video-${video.ttid}`} />
+							<Checkbox
+								checked={ttids[i] === video.ttid}
+								onCheckedChange={(checked) =>
+									setTTIDs((ttids) =>
+										ttids.map((ttid, j) => {
+											if (i === j) {
+												return checked ? video.ttid : -1;
+											}
+											return ttid;
+										}),
+									)
+								}
+								id={`video-${video.ttid}`}
+							/>
 						</div>
 					</div>
 				</div>
 			))}
 		</div>
+	);
+};
+
+const SelectorFooter = () => {
+	const videos = useAtomValue(videosAtom);
+	const [ttids, setTTIDs] = useAtom(ttidsAtom);
+
+	const selectedVideosCount = useMemo(
+		() => ttids.reduce((acc, i) => (i === -1 ? acc : acc + 1), 0),
+		[ttids],
+	);
+
+	if (videos.state !== "hasData") {
+		return <Skeleton className="h-8" />;
+	}
+
+	return (
+		<>
+			<span className="text-muted-foreground text-bold mr-auto">
+				({selectedVideosCount}) Selected
+			</span>
+			<Button
+				type="button"
+				variant="secondary"
+				onClick={() => setTTIDs((ttids) => ttids.map(() => -1))}
+			>
+				Deselect All
+			</Button>
+			<Button
+				type="button"
+				onClick={() => setTTIDs(videos.data.map(({ ttid }) => ttid))}
+			>
+				Select All
+			</Button>
+		</>
 	);
 };
 
@@ -85,13 +141,7 @@ export const VideoSelector = () => {
 				</ScrollArea>
 			</CardContent>
 			<CardFooter className="flex gap-2">
-				<span className="text-muted-foreground text-bold mr-auto">
-					(0) Selected
-				</span>
-				<Button type="button" variant="secondary">
-					Deselect All
-				</Button>
-				<Button type="button">Select All</Button>
+				<SelectorFooter />
 			</CardFooter>
 		</Card>
 	);
