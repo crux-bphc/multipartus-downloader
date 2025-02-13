@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { VideoSelector } from "./video-selector";
 
 export type DownloadFormValues = {
+	lecture?: [number, number];
 	videos: {
 		selected: boolean;
 		ttid: number;
@@ -12,7 +13,11 @@ export type DownloadFormValues = {
 };
 
 export function DownloadForm(props: { department: string; code: string }) {
-	const methods = useForm<DownloadFormValues>();
+	const methods = useForm<DownloadFormValues>({
+		defaultValues: {
+			videos: []
+		}
+	});
 
 	const onSubmit: SubmitHandler<DownloadFormValues> = (data) => {
 		console.log(data);

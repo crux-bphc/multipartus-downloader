@@ -14,13 +14,13 @@ import {
 } from "./ui/card";
 import { Checkbox } from "./ui/checkbox";
 import { ScrollArea } from "./ui/scroll-area";
-const Videos = (props: { session: number; subjectId: number }) => {
+const Videos = () => {
+	const { control, setValue, watch } = useFormContext<DownloadFormValues>();
+	const lectureId = watch("lecture");
 	const { idToken } = useLogto();
-	const { data: videos } = useSWR<Multipartus.Video[]>([
-		`lecture/${props.session}/${props.subjectId}`,
-		idToken,
-	]);
-	const { control, setValue } = useFormContext<DownloadFormValues>();
+	const { data: videos } = useSWR<Multipartus.Video[]>(
+		lectureId ? [`lecture/${lectureId.join("/")}`, idToken] : null,
+	);
 
 	useEffect(() => {
 		if (videos) {
@@ -30,6 +30,10 @@ const Videos = (props: { session: number; subjectId: number }) => {
 			);
 		}
 	}, [videos]);
+
+	if (!videos) {
+		return <div>Loading...</div>;
+	}
 
 	return (
 		<div className="grid grid-cols-3 gap-2">
@@ -86,7 +90,7 @@ export const VideoSelector = () => {
 			</CardHeader>
 			<CardContent>
 				<ScrollArea className="h-86 pr-4">
-					<Videos session={1249} subjectId={2628604} />
+					<Videos />
 				</ScrollArea>
 			</CardContent>
 			<CardFooter className="flex gap-2">
