@@ -1,136 +1,103 @@
-import { cn } from "@/lib/utils";
-import { useEffect, useMemo } from "react";
-import { Controller, useFormContext } from "react-hook-form";
-import useSWR from "swr";
-import type { DownloadFormValues } from "./download-form";
-import { Button, buttonVariants } from "./ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "./ui/card";
+import { type Video, lectureAtom, videosAtom } from "@/lib/atoms";
+import { fetchLex } from "@/lib/lex";
+import { type PrimitiveAtom, useAtom, useAtomValue, useSetAtom } from "jotai";
+import { splitAtom } from "jotai/utils";
+import { useEffect } from "react";
+import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
-import { ScrollArea } from "./ui/scroll-area";
-const Videos = () => {
-	const { control, setValue, watch } = useFormContext<DownloadFormValues>();
-	const lectureId = watch("lecture");
-	const { data: videos } = useSWR<Multipartus.Video[]>(
-		lectureId ? `lecture/${lectureId.join("/")}` : null,
-	);
+import { Skeleton } from "./ui/skeleton";
 
-	useEffect(() => {
-		if (videos) {
-			setValue(
-				"videos",
-				videos.map((video) => ({ selected: true, ttid: video.ttid })),
-			);
-		}
-	}, [videos]);
+const videoAtomsAtom = splitAtom(videosAtom, (item) => item.ttid);
 
-	if (!videos) {
-		return <div>Loading...</div>;
-	}
+const VideoItem = (props: { video: PrimitiveAtom<Video> }) => {
+	const formatter = new Intl.DateTimeFormat("en-US");
+	const [video, setVideo] = useAtom(props.video);
 
 	return (
-		<div className="grid grid-cols-3 gap-2">
-			{videos.map((video, i) => (
-				<div
-					key={video.ttid}
-					className="flex flex-col justify-around rounded-lg border"
-				>
-					<img
-						className="w-full rounded-t-[inherit]"
-						src={`https://bitshyd.impartus.com/download1/embedded/thumbnails/${video.ttid}.jpg`}
-						alt={video.topic}
-					/>
-					<div className="p-2">
-						<div className="flex items-center justify-between gap-2">
-							<label
-								htmlFor={`video-${video.ttid}`}
-								className="flex items-center gap-2 text-lg truncate text-ellipsis"
-							>
-								<span className="bg-primary text-primary-foreground px-1 rounded">
-									{videos.length - i}
-								</span>
-								{video.topic}
-							</label>
-							<Controller
-								name={`videos.${i}.selected`}
-								control={control}
-								render={({ field }) => (
-									<Checkbox
-										id={`video-${video.ttid}`}
-										checked={field.value}
-										onCheckedChange={field.onChange}
-										ref={field.ref}
-									/>
-								)}
-							/>
-						</div>
-					</div>
+		<div className="flex items-center gap-3 px-3 bg-card rounded-lg hover:shadow-sm transition-shadow border">
+			<Checkbox
+				id={`ttid-${video.ttid}`}
+				checked={video.selected}
+				onCheckedChange={(checked) => {
+					setVideo((prev) => ({ ...prev, selected: !!checked }));
+				}}
+			/>
+			<label
+				htmlFor={`ttid-${video.ttid}`}
+				className="flex justify-between py-3 flex-grow cursor-pointer"
+			>
+				<div className="inline-flex gap-2">
+					<span className="bg-foreground text-primary px-1 rounded-sm text-bold">
+						{video.index}
+					</span>
+					{video.topic}
 				</div>
-			))}
+				<span className="text-sm text-muted-foreground">
+					{formatter.format(new Date(video.startTime))}
+				</span>
+			</label>
 		</div>
 	);
 };
 
 export const VideoSelector = () => {
-	const { setValue, watch } = useFormContext<DownloadFormValues>();
-	const videos = watch("videos");
-	const selectedCount = useMemo(
-		() => videos.reduce((acc, { selected }) => (selected ? acc + 1 : acc), 0),
-		[videos],
-	);
+	const setVideo = useSetAtom(videosAtom);
+	const lecture = useAtomValue(lectureAtom);
+	const videoAtoms = useAtomValue(videoAtomsAtom);
+
+	useEffect(() => {
+		if (lecture) {
+			setVideo([]);
+			// fetch new videos when lecture changes
+			fetchLex<Multipartus.Video[]>(`lecture/${lecture.join("/")}`)
+				.then((videos) =>
+					videos.map((video, i) => ({
+						...video,
+						selected: true,
+						index: videos.length - i,
+					})),
+				)
+				.then(setVideo);
+		}
+	}, [lecture]);
+
+	if (videoAtoms.length === 0) {
+		return <Skeleton className="h-16" />;
+	}
+
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Select to Download</CardTitle>
-				<CardDescription>
-					Choose the videos you want to download.
-				</CardDescription>
-			</CardHeader>
-			<CardContent>
-				<ScrollArea className="h-86 pr-4">
-					<Videos />
-				</ScrollArea>
-			</CardContent>
-			<CardFooter className="flex gap-2">
-				<span className={cn("mr-auto", buttonVariants({ variant: "link" }))}>
-					({selectedCount}) Selected
-				</span>
-				<Button
-					type="button"
-					variant="secondary"
-					onClick={() => {
-						setValue(
-							"videos",
-							videos.map((video) => ({
-								...video,
-								selected: false,
-							})),
-						);
-					}}
-				>
-					Deselect All
-				</Button>
-				<Button
-					type="button"
-					onClick={() => {
-						setValue(
-							"videos",
-							videos.map((video) => ({
-								...video,
-								selected: true,
-							})),
-						);
-					}}
-				>
-					Select All
-				</Button>
-			</CardFooter>
-		</Card>
+		<div className="flex flex-col gap-3">
+			{videoAtoms.map((video, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+				<VideoItem key={i} video={video} />
+			))}
+		</div>
+	);
+};
+
+export const MasterSelects = () => {
+	const setVideos = useSetAtom(videosAtom);
+
+	function selectAll() {
+		setVideos((videos) =>
+			videos.map((video) => ({ ...video, selected: true })),
+		);
+	}
+
+	function deselectAll() {
+		setVideos((videos) =>
+			videos.map((video) => ({ ...video, selected: false })),
+		);
+	}
+
+	return (
+		<>
+			<Button variant="secondary" onClick={deselectAll}>
+				Deselect All
+			</Button>
+			<Button variant="secondary" onClick={selectAll}>
+				Select All
+			</Button>
+		</>
 	);
 };

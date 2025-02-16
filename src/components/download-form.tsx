@@ -1,40 +1,47 @@
-import { DownloadIcon } from "lucide-react";
-import { FormProvider, type SubmitHandler, useForm } from "react-hook-form";
+import { subjectAtom, videosAtom } from "@/lib/atoms";
+import { useAtomValue } from "jotai";
+import { BirdIcon, DownloadIcon } from "lucide-react";
+import { useMemo } from "react";
 import { LectureSelector } from "./lecture-selector";
+import { SubjectSelector } from "./subject-selector";
 import { Button } from "./ui/button";
-import { VideoSelector } from "./video-selector";
+import { MasterSelects, VideoSelector } from "./video-selector";
 
-export type DownloadFormValues = {
-	lecture?: [number, number];
-	videos: {
-		selected: boolean;
-		ttid: number;
-	}[];
+const DownloadButton = () => {
+	const videos = useAtomValue(videosAtom);
+	const selectCount = useMemo(
+		() => videos.filter((v) => v.selected).length,
+		[videos],
+	);
+	return (
+		<Button disabled={selectCount === 0}>
+			({selectCount}) Download
+			<DownloadIcon />
+		</Button>
+	);
 };
 
-export function DownloadForm(props: { department: string; code: string }) {
-	const methods = useForm<DownloadFormValues>({
-		defaultValues: {
-			videos: [],
-		},
-	});
-
-	const onSubmit: SubmitHandler<DownloadFormValues> = (data) => {
-		console.log(data);
-	};
+export const DownloadForm = () => {
+	const subject = useAtomValue(subjectAtom);
 
 	return (
-		<FormProvider {...methods}>
-			<form onSubmit={methods.handleSubmit(onSubmit)}>
-				<div className="flex flex-col gap-6">
-					<LectureSelector department={props.department} code={props.code} />
+		<div className="py-6">
+			<SubjectSelector />
+			{subject ? (
+				<div className="flex flex-col">
+					<div className="flex items-center gap-2 sticky top-0 py-6 bg-background">
+						<LectureSelector />
+						<MasterSelects />
+						<DownloadButton />
+					</div>
 					<VideoSelector />
-					<Button size="lg">
-						Download
-						<DownloadIcon />
-					</Button>
 				</div>
-			</form>
-		</FormProvider>
+			) : (
+				<div className="flex flex-col gap-6 justify-center items-center py-12">
+					<BirdIcon className="size-64 text-muted-foreground" />
+					<p className="leading-7">no subject selected</p>
+				</div>
+			)}
+		</div>
 	);
-}
+};

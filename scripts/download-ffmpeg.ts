@@ -19,19 +19,28 @@ const sidecarDirectory = join(
 	"./src-tauri/binaries",
 );
 
-for await (const [to, from] of Object.entries(binaries)) {
-	const target = join(sidecarDirectory, `ffmpeg-${to}`);
-	if (await Bun.file(target).exists()) continue;
+async function download(targetTriple: keyof typeof binaries) {
+	const target = join(sidecarDirectory, `ffmpeg-${targetTriple}`);
+	if (await Bun.file(target).exists()) return;
 
 	try {
-		await $`curl -L -o ${target} ${from}`;
+		await $`curl -L -o ${target} ${binaries[targetTriple]}`;
 	} catch {
 		console.error("Make sure you have curl installed on your shell");
 	}
 
-	if (to.includes("linux")) {
+	if (targetTriple.includes("linux")) {
 		await $`chmod +x ${target}`;
 	}
 
-	console.info(`Downloaded ${from} to ${target}`);
+	console.info(`Downloaded ${binaries[targetTriple]} to ${target}`);
+}
+
+switch (process.platform) {
+	case "linux":
+		download("x86_64-unknown-linux-gnu");
+		break;
+	case "win32":
+		download("x86_64-pc-windows-msvc.exe");
+		break;
 }

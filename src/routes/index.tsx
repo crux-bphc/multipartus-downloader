@@ -1,12 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { useLogto } from "@/lib/logto";
+import { logtoClient, useLogto } from "@/lib/logto";
 import { onUrl, start } from "@fabianlars/tauri-plugin-oauth";
 
 function LoginButton() {
-	const { logtoClient, updateAuthState } = useLogto();
+	const { updateAuthState } = useLogto();
 
 	async function handleLogin() {
-		const port = await start();
+		const port = await start({ ports: [6942] });
 		console.log(`oauth started at port ${port}`);
 		await logtoClient.signIn(`http://localhost:${port}`);
 
@@ -20,26 +20,14 @@ function LoginButton() {
 		<Button onClick={handleLogin} size="lg" type="button">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
-				width="0.98em"
+				width="1em"
 				height="1em"
-				viewBox="0 0 256 262"
+				viewBox="0 0 24 24"
 			>
-				<title>google-logo</title>
+				<title>google</title>
 				<path
-					fill="#4285F4"
-					d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622l38.755 30.023l2.685.268c24.659-22.774 38.875-56.282 38.875-96.027"
-				/>
-				<path
-					fill="#34A853"
-					d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055c-34.523 0-63.824-22.773-74.269-54.25l-1.531.13l-40.298 31.187l-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1"
-				/>
-				<path
-					fill="#FBBC05"
-					d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82c0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602z"
-				/>
-				<path
-					fill="#EB4335"
-					d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0C79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251"
+					fill="currentColor"
+					d="M12 2a9.96 9.96 0 0 1 6.29 2.226a1 1 0 0 1 .04 1.52l-1.51 1.362a1 1 0 0 1-1.265.06a6 6 0 1 0 2.103 6.836l.001-.004h-3.66a1 1 0 0 1-.992-.883L13 13v-2a1 1 0 0 1 1-1h6.945a1 1 0 0 1 .994.89q.06.55.061 1.11c0 5.523-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2"
 				/>
 			</svg>
 			Login with BITS Mail
@@ -49,13 +37,16 @@ function LoginButton() {
 
 export function LoginPage() {
 	return (
-		<main className="mx-auto container">
+		<main className="mx-auto container px-4">
 			<div className="flex flex-col items-center justify-center h-svh gap-12">
 				<h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl">
-					<span className="text-blue-500">MULTI</span>PARTUS Downloader
+					<span className="text-primary">MULTI</span>PARTUS Downloader
 				</h1>
 				<LoginButton />
-				<p className="text-sm text-muted-foreground">Created by CRUx</p>
+				<p className="text-muted-foreground">
+					Created by <span className="text-[#164a9e]">CRUx</span>, the coding
+					and programming club of BITS Pilani, Hyderabad Campus
+				</p>
 			</div>
 		</main>
 	);

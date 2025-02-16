@@ -1,14 +1,16 @@
-import { fetchLex } from "@/lib/lex";
 import { LogtoProvider } from "@/lib/logto";
+import { Provider } from "jotai";
+import { Suspense } from "react";
 import { Outlet } from "react-router";
-import { SWRConfig } from "swr";
 
 export const AppLayout = () => {
 	return (
-		<LogtoProvider>
-			<SWRConfig value={{ fetcher: fetchLex }}>
-				<Outlet />
-			</SWRConfig>
-		</LogtoProvider>
+		<Provider>
+			<Suspense>
+				<LogtoProvider>
+					<Outlet />
+				</LogtoProvider>
+			</Suspense>
+		</Provider>
 	);
 };

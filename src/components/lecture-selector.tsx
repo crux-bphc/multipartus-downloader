@@ -1,7 +1,8 @@
+import { lectureAtom, subjectAtom } from "@/lib/atoms";
+import { fetchLex } from "@/lib/lex";
+import { atom, useAtom, useAtomValue } from "jotai";
+import { loadable } from "jotai/utils";
 import { useEffect } from "react";
-import { Controller, useFormContext } from "react-hook-form";
-import useSWR from "swr";
-import type { DownloadFormValues } from "./download-form";
 import {
 	Select,
 	SelectContent,
@@ -9,11 +10,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
+import { Skeleton } from "./ui/skeleton";
 
-const getStringValue = (lecture: Multipartus.Lecture) =>
-	lecture.id.ID.join(";");
-
-const getSession = (
+const getSessionLabel = (
 	sessions: Multipartus.Sessions,
 	lecture: Multipartus.Lecture,
 ) => {
@@ -25,51 +24,67 @@ const getSession = (
 	return "unknown session";
 };
 
-export function LectureSelector(props: { department: string; code: string }) {
-	const { control, setValue } = useFormContext<DownloadFormValues>();
-	const { data: sessions } = useSWR<Multipartus.Sessions>("session");
-	const { data: lectures } = useSWR<Multipartus.Lecture[]>(
-		`subject/${props.department}/${props.code}/lectures`,
-	);
+const sessionsAtom = atom(async (_, { signal }) => {
+	const sessions = await fetchLex<Multipartus.Sessions>("session", { signal });
+	return sessions;
+});
+
+const lecturesAtom = loadable(
+	atom(async (get) => {
+		const subject = get(subjectAtom);
+
+		if (!subject) {
+			return [];
+		}
+
+		const sessions = await get(sessionsAtom);
+		const lectures = await fetchLex<Multipartus.Lecture[]>(
+			`subject/${subject[0].replaceAll("/", ",")}/${subject[1]}/lectures`,
+		);
+
+		return lectures.map((lecture) => ({
+			id: lecture.id.ID,
+			value: lecture.id.ID.join(";"),
+			label: [
+				lecture.section,
+				lecture.professor,
+				getSessionLabel(sessions, lecture),
+			].join(" | "),
+		}));
+	}),
+);
+
+export function LectureSelector() {
+	const [selectedLecture, selectLecture] = useAtom(lectureAtom);
+	const lectures = useAtomValue(lecturesAtom);
 
 	useEffect(() => {
-		if (lectures) {
-			setValue("lecture", lectures[0].id.ID);
+		if (lectures.state === "hasData" && lectures.data.length > 0) {
+			selectLecture(lectures.data[0].id);
 		}
 	}, [lectures]);
 
-	if (!lectures || !sessions) {
-		return <div>Loading...</div>;
+	if (lectures.state !== "hasData") {
+		return <Skeleton className="h-9 flex-grow" />;
 	}
 
 	return (
-		<Controller
-			control={control}
-			name="lecture"
-			render={({ field }) => (
-				<Select
-					onValueChange={(value) => field.onChange(value.split(";"))}
-					defaultValue={field.value?.join(";")}
-				>
-					<SelectTrigger>
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						{lectures.map((lecture) => (
-							<SelectItem
-								key={getStringValue(lecture)}
-								value={getStringValue(lecture)}
-							>
-								{[
-									lecture.section,
-									lecture.professor,
-									getSession(sessions, lecture),
-								].join(" | ")}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-			)}
-		/>
+		<Select
+			onValueChange={(value) =>
+				selectLecture(value.split(";").map(Number) as [number, number])
+			}
+			value={selectedLecture ? selectedLecture.join(";") : undefined}
+		>
+			<SelectTrigger>
+				<SelectValue />
+			</SelectTrigger>
+			<SelectContent>
+				{lectures.data.map((lecture) => (
+					<SelectItem key={lecture.value} value={lecture.value}>
+						{lecture.label}
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
 	);
 }

@@ -18,11 +18,9 @@ export const logtoClient = new LogtoClient({
 logtoClient.adapter.navigate = (url) => openUrl(url);
 
 const LogtoContext = createContext<{
-	logtoClient: LogtoClient;
 	isAuthenticated: boolean;
 	updateAuthState: () => Promise<void>;
 }>({
-	logtoClient,
 	isAuthenticated: false,
 	updateAuthState: async () => {
 		throw Error("Not implemented");
@@ -39,7 +37,7 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 
 	useEffect(() => {
 		updateAuthState();
-	});
+	}, []);
 
 	useEffect(() => {
 		if (isAuthenticated) {
@@ -50,9 +48,7 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 	}, [isAuthenticated, navigate]);
 
 	return (
-		<LogtoContext.Provider
-			value={{ logtoClient, isAuthenticated, updateAuthState }}
-		>
+		<LogtoContext.Provider value={{ isAuthenticated, updateAuthState }}>
 			{children}
 		</LogtoContext.Provider>
 	);

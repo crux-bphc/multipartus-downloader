@@ -1,4 +1,3 @@
-import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { DownloadPage } from "./routes/app";
@@ -14,14 +13,12 @@ if (!node) {
 }
 
 createRoot(node).render(
-	<StrictMode>
-		<BrowserRouter>
-			<Routes>
-				<Route element={<AppLayout />}>
-					<Route index element={<LoginPage />} />
-					<Route path="/app" element={<DownloadPage />} />
-				</Route>
-			</Routes>
-		</BrowserRouter>
-	</StrictMode>,
+	<BrowserRouter>
+		<Routes>
+			<Route element={<AppLayout />}>
+				<Route index element={<LoginPage />} />
+				<Route path="/app" element={<DownloadPage />} />
+			</Route>
+		</Routes>
+	</BrowserRouter>,
 );

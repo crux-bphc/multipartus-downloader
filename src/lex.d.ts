@@ -24,6 +24,7 @@ namespace Multipartus {
 		ttid: number;
 		topic: string;
 		coverpic: string;
+		startTime: string;
 	}
 
 	export type Sessions = Record<string, [number, number]>;

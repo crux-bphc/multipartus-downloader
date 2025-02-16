@@ -2,62 +2,49 @@
 
 @plugin "tailwindcss-animate";
 
-@custom-variant dark (&:is(.dark *));
-
 :root {
 	--default-font-family: "Lexend Variable";
-	--background: hsl(0 0% 100%);
-	--foreground: hsl(0 0% 3.9%);
-	--card: hsl(0 0% 100%);
-	--card-foreground: hsl(0 0% 3.9%);
-	--popover: hsl(0 0% 100%);
-	--popover-foreground: hsl(0 0% 3.9%);
-	--primary: hsl(0 0% 9%);
-	--primary-foreground: hsl(0 0% 98%);
-	--secondary: hsl(0 0% 96.1%);
-	--secondary-foreground: hsl(0 0% 9%);
-	--muted: hsl(0 0% 96.1%);
-	--muted-foreground: hsl(0 0% 45.1%);
-	--accent: hsl(0 0% 96.1%);
-	--accent-foreground: hsl(0 0% 9%);
-	--destructive: hsl(0 84.2% 60.2%);
-	--destructive-foreground: hsl(0 0% 98%);
-	--border: hsl(0 0% 89.8%);
-	--input: hsl(0 0% 89.8%);
-	--ring: hsl(0 0% 3.9%);
+	/* Name: custom color palette
+       Author: Ilias Ism
+       URL: https://gradient.page */
+
+	/* CSS: .bg-gradient { background: var(--gradient) } */
+	--gradient: #6190e8;
+
+	--background: hsl(233 48.75% 5.12%);
+	--foreground: hsl(233 7.5% 98.2%);
+
+	--muted: hsl(233 37.5% 19.2%);
+	--muted-foreground: hsl(233 7.5% 56.4%);
+
+	--popover: hsl(233 50% 8.32%);
+	--popover-foreground: hsl(233 7.5% 98.2%);
+
+	--card: hsl(233 50% 8.32%);
+	--card-foreground: hsl(233 7.5% 98.2%);
+
+	--border: hsl(233 37.5% 19.2%);
+	--input: hsl(233 37.5% 19.2%);
+
+	--primary: hsl(233 75% 64%);
+	--primary-foreground: hsl(233 7.5% 6.4%);
+
+	--secondary: hsl(233 37.5% 19.2%);
+	--secondary-foreground: hsl(233 7.5% 98.2%);
+
+	--accent: hsl(233 37.5% 19.2%);
+	--accent-foreground: hsl(233 7.5% 98.2%);
+
+	--destructive: hsl(0 62.8% 30.6%);
+	--destructive-foreground: hsl(233 7.5% 98.2%);
+
+	--ring: 233 75% 64%;
 	--chart-1: hsl(12 76% 61%);
 	--chart-2: hsl(173 58% 39%);
 	--chart-3: hsl(197 37% 24%);
 	--chart-4: hsl(43 74% 66%);
 	--chart-5: hsl(27 87% 67%);
-	--radius: 0.6rem;
-}
-
-.dark {
-	--background: hsl(0 0% 3.9%);
-	--foreground: hsl(0 0% 98%);
-	--card: hsl(0 0% 3.9%);
-	--card-foreground: hsl(0 0% 98%);
-	--popover: hsl(0 0% 3.9%);
-	--popover-foreground: hsl(0 0% 98%);
-	--primary: hsl(0 0% 98%);
-	--primary-foreground: hsl(0 0% 9%);
-	--secondary: hsl(0 0% 14.9%);
-	--secondary-foreground: hsl(0 0% 98%);
-	--muted: hsl(0 0% 14.9%);
-	--muted-foreground: hsl(0 0% 63.9%);
-	--accent: hsl(0 0% 14.9%);
-	--accent-foreground: hsl(0 0% 98%);
-	--destructive: hsl(0 62.8% 30.6%);
-	--destructive-foreground: hsl(0 0% 98%);
-	--border: hsl(0 0% 14.9%);
-	--input: hsl(0 0% 14.9%);
-	--ring: hsl(0 0% 83.1%);
-	--chart-1: hsl(220 70% 50%);
-	--chart-2: hsl(160 60% 45%);
-	--chart-3: hsl(30 80% 55%);
-	--chart-4: hsl(280 65% 60%);
-	--chart-5: hsl(340 75% 55%);
+	--radius: 0.5rem;
 }
 
 @theme inline {
