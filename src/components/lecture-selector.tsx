@@ -32,9 +32,14 @@ const sessionsAtom = atom(async (_, { signal }) => {
 const lecturesAtom = loadable(
 	atom(async (get) => {
 		const subject = get(subjectAtom);
+
+		if (!subject) {
+			return [];
+		}
+
 		const sessions = await get(sessionsAtom);
 		const lectures = await fetchLex<Multipartus.Lecture[]>(
-			`subject/${subject?.join("/")}/lectures`,
+			`subject/${subject[0].replaceAll("/", ",")}/${subject[1]}/lectures`,
 		);
 
 		return lectures.map((lecture) => ({

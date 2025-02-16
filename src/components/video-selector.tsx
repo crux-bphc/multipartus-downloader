@@ -3,9 +3,9 @@ import { fetchLex } from "@/lib/lex";
 import { type PrimitiveAtom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
 import { useEffect } from "react";
+import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Skeleton } from "./ui/skeleton";
-import { Button } from "./ui/button";
 
 const videoAtomsAtom = splitAtom(videosAtom, (item) => item.ttid);
 
@@ -26,8 +26,8 @@ const VideoItem = (props: { video: PrimitiveAtom<Video> }) => {
 				htmlFor={`ttid-${video.ttid}`}
 				className="flex justify-between py-3 flex-grow cursor-pointer"
 			>
-				<div>
-					<span className="bg-foreground text-background px-1 rounded-sm mr-1 text-bold">
+				<div className="inline-flex gap-2">
+					<span className="bg-foreground text-primary px-1 rounded-sm text-bold">
 						{video.index}
 					</span>
 					{video.topic}

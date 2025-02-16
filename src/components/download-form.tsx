@@ -1,10 +1,11 @@
 import { subjectAtom, videosAtom } from "@/lib/atoms";
 import { useAtomValue } from "jotai";
 import { BirdIcon, DownloadIcon } from "lucide-react";
+import { useMemo } from "react";
 import { LectureSelector } from "./lecture-selector";
+import { SubjectSelector } from "./subject-selector";
 import { Button } from "./ui/button";
 import { MasterSelects, VideoSelector } from "./video-selector";
-import { useMemo } from "react";
 
 const DownloadButton = () => {
 	const videos = useAtomValue(videosAtom);
@@ -24,10 +25,11 @@ export const DownloadForm = () => {
 	const subject = useAtomValue(subjectAtom);
 
 	return (
-		<div>
+		<div className="py-6">
+			<SubjectSelector />
 			{subject ? (
 				<div className="flex flex-col">
-					<div className="flex items-center gap-3 sticky top-0 py-6 bg-card">
+					<div className="flex items-center gap-2 sticky top-0 py-6 bg-background">
 						<LectureSelector />
 						<MasterSelects />
 						<DownloadButton />
@@ -36,7 +38,7 @@ export const DownloadForm = () => {
 				</div>
 			) : (
 				<div className="flex flex-col gap-6 justify-center items-center py-12">
-					<BirdIcon className="w-64 h-64 text-muted-foreground" />
+					<BirdIcon className="size-64 text-muted-foreground" />
 					<p className="leading-7">no subject selected</p>
 				</div>
 			)}
