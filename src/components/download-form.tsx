@@ -1,11 +1,26 @@
-import { subjectAtom } from "@/lib/atoms";
+import { subjectAtom, videosAtom } from "@/lib/atoms";
 import { useAtomValue } from "jotai";
 import { BirdIcon, DownloadIcon } from "lucide-react";
 import { LectureSelector } from "./lecture-selector";
 import { Button } from "./ui/button";
-import { VideoSelector } from "./video-selector";
+import { MasterSelects, VideoSelector } from "./video-selector";
+import { useMemo } from "react";
 
-export function DownloadForm() {
+const DownloadButton = () => {
+	const videos = useAtomValue(videosAtom);
+	const selectCount = useMemo(
+		() => videos.filter((v) => v.selected).length,
+		[videos],
+	);
+	return (
+		<Button disabled={selectCount === 0}>
+			({selectCount}) Download
+			<DownloadIcon />
+		</Button>
+	);
+};
+
+export const DownloadForm = () => {
 	const subject = useAtomValue(subjectAtom);
 
 	return (
@@ -14,10 +29,8 @@ export function DownloadForm() {
 				<div className="flex flex-col">
 					<div className="flex items-center gap-3 sticky top-0 py-6 bg-card">
 						<LectureSelector />
-						<Button>
-							Download
-							<DownloadIcon />
-						</Button>
+						<MasterSelects />
+						<DownloadButton />
 					</div>
 					<VideoSelector />
 				</div>
@@ -29,4 +42,4 @@ export function DownloadForm() {
 			)}
 		</div>
 	);
-}
+};

@@ -5,6 +5,7 @@ import { splitAtom } from "jotai/utils";
 import { useEffect } from "react";
 import { Checkbox } from "./ui/checkbox";
 import { Skeleton } from "./ui/skeleton";
+import { Button } from "./ui/button";
 
 const videoAtomsAtom = splitAtom(videosAtom, (item) => item.ttid);
 
@@ -23,14 +24,14 @@ const VideoItem = (props: { video: PrimitiveAtom<Video> }) => {
 			/>
 			<label
 				htmlFor={`ttid-${video.ttid}`}
-				className="flex flex-col py-3 flex-grow cursor-pointer"
+				className="flex justify-between py-3 flex-grow cursor-pointer"
 			>
-				<span>
+				<div>
 					<span className="bg-foreground text-background px-1 rounded-sm mr-1 text-bold">
 						{video.index}
 					</span>
 					{video.topic}
-				</span>
+				</div>
 				<span className="text-sm text-muted-foreground">
 					{formatter.format(new Date(video.startTime))}
 				</span>
@@ -71,5 +72,32 @@ export const VideoSelector = () => {
 				<VideoItem key={i} video={video} />
 			))}
 		</div>
+	);
+};
+
+export const MasterSelects = () => {
+	const setVideos = useSetAtom(videosAtom);
+
+	function selectAll() {
+		setVideos((videos) =>
+			videos.map((video) => ({ ...video, selected: true })),
+		);
+	}
+
+	function deselectAll() {
+		setVideos((videos) =>
+			videos.map((video) => ({ ...video, selected: false })),
+		);
+	}
+
+	return (
+		<>
+			<Button variant="secondary" onClick={deselectAll}>
+				Deselect All
+			</Button>
+			<Button variant="secondary" onClick={selectAll}>
+				Select All
+			</Button>
+		</>
 	);
 };
