@@ -1,4 +1,4 @@
-import { DownloadForm, subjectAtom } from "@/components/download-form";
+import { DownloadForm } from "@/components/download-form";
 import { Button } from "@/components/ui/button";
 import {
 	Command,
@@ -13,6 +13,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import { subjectAtom } from "@/lib/atoms";
 import { fetchLex } from "@/lib/lex";
 import { useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
@@ -42,11 +43,11 @@ function SearchSubject() {
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
-				<Button variant="outline" className="flex mx-auto w-lg text-lg h-12">
+				<Button variant="outline" className="flex mx-auto w-full text-lg h-12">
 					{label}
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent className="p-0 w-lg">
+			<PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
 				<Command shouldFilter={false}>
 					<CommandInput value={search} onValueChange={setSearch} />
 					<CommandList>
@@ -80,7 +81,6 @@ export const DownloadPage = () => {
 		<main className="mx-auto container">
 			<br />
 			<SearchSubject />
-			<br />
 			<DownloadForm />
 			<br />
 		</main>

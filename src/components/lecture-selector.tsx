@@ -1,8 +1,8 @@
+import { lectureAtom, subjectAtom } from "@/lib/atoms";
 import { fetchLex } from "@/lib/lex";
 import { atom, useAtom, useAtomValue } from "jotai";
 import { loadable } from "jotai/utils";
 import { useEffect } from "react";
-import { lectureAtom, subjectAtom } from "./download-form";
 import {
 	Select,
 	SelectContent,
@@ -60,7 +60,7 @@ export function LectureSelector() {
 	}, [lectures]);
 
 	if (lectures.state !== "hasData") {
-		return <Skeleton className="h-9" />;
+		return <Skeleton className="h-9 flex-grow" />;
 	}
 
 	return (

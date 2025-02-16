@@ -1,18 +1,9 @@
-import { atom, useAtomValue } from "jotai";
+import { subjectAtom } from "@/lib/atoms";
+import { useAtomValue } from "jotai";
 import { BirdIcon, DownloadIcon } from "lucide-react";
 import { LectureSelector } from "./lecture-selector";
 import { Button } from "./ui/button";
 import { VideoSelector } from "./video-selector";
-
-// selected subject
-export const subjectAtom = atom<[string, string]>();
-
-// selected lecture section for the selected subject
-export const lectureAtom = atom<[number, number]>();
-
-// selected video ttids for selected lecture
-// -1 if video is not selected, {ttid} if selected
-export const ttidsAtom = atom<number[]>([]);
 
 export function DownloadForm() {
 	const subject = useAtomValue(subjectAtom);
@@ -20,13 +11,15 @@ export function DownloadForm() {
 	return (
 		<div>
 			{subject ? (
-				<div className="flex flex-col gap-6">
-					<LectureSelector />
+				<div className="flex flex-col">
+					<div className="flex items-center gap-3 sticky top-0 py-6 bg-card">
+						<LectureSelector />
+						<Button>
+							Download
+							<DownloadIcon />
+						</Button>
+					</div>
 					<VideoSelector />
-					<Button size="lg">
-						Download
-						<DownloadIcon />
-					</Button>
 				</div>
 			) : (
 				<div className="flex flex-col gap-6 justify-center items-center py-12">
