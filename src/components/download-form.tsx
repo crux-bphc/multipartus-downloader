@@ -9,6 +9,7 @@ import { MasterSelects, VideoSelector } from "./video-selector";
 import { invoke } from '@tauri-apps/api/core';
 import { logtoClient } from "@/lib/logto";
 import { open } from '@tauri-apps/plugin-dialog';
+import { join } from '@tauri-apps/api/path';
 
 const DownloadButton = () => {
 	const videos = useAtomValue(videosAtom);
@@ -18,11 +19,14 @@ const DownloadButton = () => {
 	);
 
 	async function handleClick() {
-		const folder = await open({
+		const baseFolder = await open({
 			directory: true,
 			multiple: false
 		});
-		if (!folder) return;
+		if (!baseFolder) return;
+
+		const folder = await join(baseFolder, 'BITS TEMP');
+
 
 		const token = await logtoClient.getIdToken();
 		await invoke('download', { token, folder, videos: selectedVideos });
