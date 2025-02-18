@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use aes::{cipher::{block_padding::ZeroPadding, BlockDecryptMut, KeyInit}, Aes128};
+use aes::{cipher::{block_padding::ZeroPadding, BlockDecryptMut, KeyIvInit}, Aes128};
 use tauri_plugin_http::{reqwest, reqwest::Response};
 
 
@@ -248,7 +248,9 @@ fn decrypt(bytes: &mut Vec<u8>, key: &[u8]) -> Result<(), Error> {
 
     bytes.append(&mut extra_bytes);
 
-    let decryptor = match Aes128::new_from_slice(key) {
+    type Aes128Cbc = cbc::Decryptor<Aes128>;
+
+    let decryptor = match Aes128Cbc::new_from_slices(key, &[0; 16]) {
         Ok(value) => value,
         Err(error) => return Err(Error{ error_string: error.to_string() })
     };
