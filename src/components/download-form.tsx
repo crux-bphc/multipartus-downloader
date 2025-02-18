@@ -6,16 +6,31 @@ import { LectureSelector } from "./lecture-selector";
 import { SubjectSelector } from "./subject-selector";
 import { Button } from "./ui/button";
 import { MasterSelects, VideoSelector } from "./video-selector";
+import { invoke } from '@tauri-apps/api/core';
+import { logtoClient } from "@/lib/logto";
+import { open } from '@tauri-apps/plugin-dialog';
 
 const DownloadButton = () => {
 	const videos = useAtomValue(videosAtom);
-	const selectCount = useMemo(
-		() => videos.filter((v) => v.selected).length,
+	const selectedVideos = useMemo(
+		() => videos.filter((v) => v.selected),
 		[videos],
 	);
+
+	async function handleClick() {
+		const folder = await open({
+			directory: true,
+			multiple: false
+		});
+		if (!folder) return;
+
+		const token = await logtoClient.getIdToken();
+		await invoke('download', { token, folder, videos: selectedVideos });
+	}
+
 	return (
-		<Button disabled={selectCount === 0}>
-			({selectCount}) Download
+		<Button disabled={selectedVideos.length === 0} onClick={handleClick}>
+			({selectedVideos.length}) Download
 			<DownloadIcon />
 		</Button>
 	);

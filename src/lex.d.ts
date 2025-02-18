@@ -23,8 +23,9 @@ namespace Multipartus {
 	export interface Video {
 		ttid: number;
 		topic: string;
-		coverpic: string;
 		startTime: string;
+		selected: boolean;
+		number: number;
 	}
 
 	export type Sessions = Record<string, [number, number]>;
