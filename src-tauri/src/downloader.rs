@@ -8,11 +8,13 @@ use tauri_plugin_http::{reqwest, reqwest::Response};
 const BASE: &str = "https://lex.crux-bphc.com/api";
 
 // TODO: Change this?
-const M3U8_LOCATION: &'static str = "./";
+const M3U8_LOCATION: &str = "./";
 
 // TODO: Extract this into an .env variable
-const ID_TOKEN: &'static str = "Put your id token here for now";
+const ID_TOKEN: &str = "Put your id here for now";
 
+// Debug
+const LOGS: bool = true;
 
 #[derive(Debug)]
 pub struct Error {
@@ -118,6 +120,12 @@ pub async fn generate_m3u8_tmp_file(
     // Get impartus .m3u8 file
     let text = authenticated_result_text(&client, &url, ID_TOKEN).await?;
     
+    let high_res_m3u8 = text.lines().nth(2).unwrap();
+
+    if LOGS { println!("High res m3u8 is {high_res_m3u8}"); }
+
+    let text = authenticated_result_text(&client, high_res_m3u8, ID_TOKEN).await?;
+
     // get impartus key
     let key= authenticated_result_bytes(&client, &key_url, ID_TOKEN).await?;
 
@@ -139,6 +147,7 @@ pub async fn generate_m3u8_tmp_file(
             out.push_str(line);
             out.push('\n');
         }
+        if LOGS { println!("{line}"); }
     }
 
     // Process each .ts file and create a local, unencrypted copy of it and add it to the out string
@@ -151,20 +160,33 @@ pub async fn generate_m3u8_tmp_file(
             break;
         }
 
+        if LOGS { println!("header {header}"); }
+
         // The url to send a get request to
         let ts_url = m3u8_lines.next().unwrap();
     
-        let mut ts_data = authenticated_result_bytes(&client, &ts_url, ID_TOKEN).await?;
+        if LOGS { println!("ts_url {ts_url}"); }
+
+        let mut ts_data = authenticated_result_bytes(&client, ts_url, ID_TOKEN).await?;
         
         // Decrypt the file
         decrypt(&mut ts_data, key.as_slice())?;    
 
-        let ts_store_location = format!("{M3U8_LOCATION}/ts_store/tmp_{filename}_{i}.ts");
+        
+        let mut ts_store_location = 
+            std::path::Path::new(M3U8_LOCATION)
+                .join("ts_store");
+
+        std::fs::create_dir_all(&ts_store_location).unwrap();
+
+        ts_store_location.push(format!("tmp_{filename}_{i}.ts"));
+
+        let ts_store_name = ts_store_location.to_str().unwrap();
 
         // Create a local unencrypted copy of the .ts file
         let mut ts_store = match std::fs::File::create(&ts_store_location) {
             Err(error) => {
-                println!("Failed to create `.ts` file at {ts_store_location}! Error: {error}");
+                println!("Failed to create `.ts` file at {ts_store_name}! Error: {error}");
                 return Err(error.into());
             }
 
@@ -179,7 +201,7 @@ pub async fn generate_m3u8_tmp_file(
 
         // Attach original header and path to newly created file
         out += header;
-        out += &ts_store_location;
+        out += ts_store_name;
 
         drop(ts_store);
 
