@@ -1,43 +1,110 @@
-use std::{io::Write, str::Bytes};
+use std::io::Write;
 
-use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
-use tauri_plugin_http::reqwest;
+use aes::{cipher::{block_padding::ZeroPadding, BlockDecryptMut, KeyInit}, Aes128};
+use tauri_plugin_http::{reqwest, reqwest::Response};
+
+
+// TODO: Extract this into an .env variable
+const BASE: &str = "https://lex.crux-bphc.com/api";
+
+// TODO: Change this?
+const M3U8_LOCATION: &'static str = "./";
+
+// TODO: Extract this into an .env variable
+const ID_TOKEN: &'static str = "Put your id token here for now";
+
 
 #[derive(Debug)]
 pub struct Error {
     error_string: String,
 }
 
-impl Into<Error> for std::io::Error {
-    fn into(self) -> Error {
+impl From<std::io::Error> for Error {
+    fn from(val: std::io::Error) -> Self {
         Error {
-            error_string: self.to_string(),
+            error_string: val.to_string(),
         }
     }
 }
 
-impl Into<Error> for reqwest::Error {
-    fn into(self) -> Error {
+impl From<reqwest::Error> for Error {
+    fn from(val: reqwest::Error) -> Self {
         Error {
-            error_string: self.to_string(),
+            error_string: val.to_string(),
         }
+    }
+}
+
+/// Converts 16 bytes to 14, so this doesn't work here. Idk how it worked in Go
+/// 
+/// https://github.com/pnicto/impartus-video-downloader/blob/main/impartus.go#L241
+fn get_decryption_key(mut encryption_key: Vec<u8>) -> Vec<u8> {
+	encryption_key.drain(0..2);
+    let (mut i, mut j) = (0, encryption_key.len() - 1);
+	loop  {
+        encryption_key.swap(i, j);
+        i += 1;
+        j -= 1;
+        if i >= j { break; }
+	}
+
+	encryption_key
+}
+
+async fn authenticated_request(client: &reqwest::Client, url: &str, token: &str) -> Result<Response, Error>{
+    let request = 
+    client
+        .get(url)
+        .header("authorization", format!("Bearer {token}"));
+    match request.send().await {
+        Ok(response) => Ok(response),
+        Err(error) => Err(error.into()),
+    }
+}
+
+async fn authenticated_result_bytes(client: &reqwest::Client, url: &str, token: &str) -> Result<Vec<u8>, Error> {
+    let response = authenticated_request(client, url, token).await?;
+    let status = response.status();
+
+    match response.bytes().await {
+        Ok(bytes) => {
+            if status == 200 { Ok(bytes.to_vec()) }
+            else { Err(Error { error_string: format!("Failed to fetch data! Status code: {status}") }) }
+        },
+        Err(error) => Err(error.into())
+    }
+}
+
+async fn authenticated_result_text(client: &reqwest::Client, url: &str, token: &str) -> Result<String, Error> {
+    let response = authenticated_request(client, url, token).await?;
+    let status = response.status();
+
+    match response.text().await {
+        Ok(text) => {
+            if status == 200 { Ok(text) }
+            else { Err(Error { error_string: text }) }
+        },
+        Err(error) => Err(error.into())
     }
 }
 
 /// Creates an m3u8 file referencing local unencrypted .ts files
 ///
-/// The `.m3u8` file is located at `<location>/tmp_playlist_<id>.m3u8`
+/// The `.m3u8` file is located at `<LOCATION>/<filename>.m3u8`
 ///
-/// Each `.ts` file is located at `<location>/ts_store/tmp_ts_<id>_<ts_number: 0..n>.ts`
+/// Each `.ts` file is located at `<LOCATION>/ts_store/tmp_<filename>_<ts_number: 0..n>.ts`
 pub async fn generate_m3u8_tmp_file(
-    key: &[u8],
-    url: &str,
-    location: &str,
-    id: usize,
+    ttid: usize,
+    filename: &str,
 ) -> Result<(), Error> {
+
+    // URLs to get data from
+    let url = format!("{BASE}/impartus/ttid/{ttid}/m3u8");
+    let key_url = format!("{BASE}/impartus/ttid/{ttid}/key");
+
     let client = reqwest::Client::new();
 
-    let file_path = format!("{location}/tmp_playlist_{id}.m3u8");
+    let file_path = format!("{M3U8_LOCATION}/{filename}.m3u8");
 
     let mut file = match std::fs::File::create(&file_path) {
         Err(error) => {
@@ -48,31 +115,31 @@ pub async fn generate_m3u8_tmp_file(
         Ok(file) => file,
     };
 
-    let response = match client.get(url).send().await {
-        Ok(response) => response,
-        Err(error) => return Err(error.into()),
-    };
-
-    let text = match response.text().await {
-        Ok(text) => text,
-        Err(error) => return Err(error.into()),
-    };
+    // Get impartus .m3u8 file
+    let text = authenticated_result_text(&client, &url, ID_TOKEN).await?;
+    
+    // get impartus key
+    let key= authenticated_result_bytes(&client, &key_url, ID_TOKEN).await?;
 
     // First 6 lines are headers
-    let mut m3u8_lines = text.lines().skip(6);
+    let mut m3u8_lines = text.lines();
     let mut i = 0;
 
     let mut out = String::with_capacity(text.len());
 
-    // Write headers to file
-    out.push_str(
-        r#"#EXTM3U
-#EXT-X-VERSION:3
-#EXT-X-MEDIA-SEQUENCE:0
-#EXT-X-ALLOW-CACHE:YES
-#EXT-X-TARGETDURATION:11
-#EXT-X-KEY:METHOD=NONE"#,
-    );
+    // "parse" the first 6 lines. These are "headers"?
+    // TODO: Add a loop that does not parse just 6 lines?
+    for _ in 0..6 {
+        // Assuming the file is valid and has at least 6 lines [Dies otherwise :)]
+        let line = m3u8_lines.next().unwrap();
+        if line.starts_with("#EXT-X-KEY:METHOD=") {
+            // Have no encryption enabled
+            out.push_str("#EXT-X-KEY:METHOD=NONE\n");
+        } else {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
 
     // Process each .ts file and create a local, unencrypted copy of it and add it to the out string
     loop {
@@ -86,33 +153,13 @@ pub async fn generate_m3u8_tmp_file(
 
         // The url to send a get request to
         let ts_url = m3u8_lines.next().unwrap();
+    
+        let mut ts_data = authenticated_result_bytes(&client, &ts_url, ID_TOKEN).await?;
+        
+        // Decrypt the file
+        decrypt(&mut ts_data, key.as_slice())?;    
 
-        // Get the .ts file
-        let response = match client.get(ts_url).send().await {
-            Ok(response) => response,
-            Err(error) => return Err(error.into()),
-        };
-
-        let bytes = match response.bytes().await {
-            Ok(bytes) => bytes,
-            Err(error) => return Err(error.into()),
-        };
-
-        let mut byte_array = bytes.to_vec();
-
-        // Decrypt the bytes in the .ts file
-        type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
-        let decryptor = Aes128CbcDec::new(key.into(), (&[0; 16]).into());
-
-        let decrypted_bytes = match decryptor.decrypt_padded_mut::<Pkcs7>(&mut byte_array) {
-            Ok(bytes) => bytes,
-            Err(error) =>
-                return Err(Error {
-                    error_string: error.to_string(),
-                }),
-        };
-
-        let ts_store_location = format!("{location}/ts_store/tmp_ts_{id}_{i}.ts");
+        let ts_store_location = format!("{M3U8_LOCATION}/ts_store/tmp_{filename}_{i}.ts");
 
         // Create a local unencrypted copy of the .ts file
         let mut ts_store = match std::fs::File::create(&ts_store_location) {
@@ -124,7 +171,7 @@ pub async fn generate_m3u8_tmp_file(
             Ok(file) => file,
         };
 
-        if let Err(error) = ts_store.write(decrypted_bytes) {
+        if let Err(error) = ts_store.write(&ts_data) {
             return Err(error.into());
         };
 
@@ -149,5 +196,24 @@ pub async fn generate_m3u8_tmp_file(
     file.flush().expect("Failed to flush file!");
     drop(file);
 
+    Ok(())
+}
+
+
+fn decrypt(bytes: &mut Vec<u8>, key: &[u8]) -> Result<(), Error> {
+    let extra_length = 16 - (bytes.len() % 16);
+    let mut extra_bytes = [extra_length as u8].repeat(extra_length);
+
+    bytes.append(&mut extra_bytes);
+
+    let decryptor = match Aes128::new_from_slice(key) {
+        Ok(value) => value,
+        Err(error) => return Err(Error{ error_string: error.to_string() })
+    };
+
+    match decryptor.decrypt_padded_mut::<ZeroPadding>(bytes) {
+        Ok(_) => (),
+        Err(error) => return Err(Error{ error_string: error.to_string() }),
+    };
     Ok(())
 }
