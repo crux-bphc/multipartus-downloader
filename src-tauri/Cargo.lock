@@ -2235,6 +2235,7 @@ name = "multipartus-downloader"
 version = "0.1.0"
 dependencies = [
  "aes",
+ "anyhow",
  "cbc",
  "serde",
  "serde_json",
