@@ -1,4 +1,4 @@
-import { type Video, lectureAtom, videosAtom } from "@/lib/atoms";
+import { lectureAtom, videosAtom } from "@/lib/atoms";
 import { fetchLex } from "@/lib/lex";
 import { type PrimitiveAtom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
@@ -9,7 +9,7 @@ import { Skeleton } from "./ui/skeleton";
 
 const videoAtomsAtom = splitAtom(videosAtom, (item) => item.ttid);
 
-const VideoItem = (props: { video: PrimitiveAtom<Video> }) => {
+const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
 	const formatter = new Intl.DateTimeFormat("en-US");
 	const [video, setVideo] = useAtom(props.video);
 
@@ -28,7 +28,7 @@ const VideoItem = (props: { video: PrimitiveAtom<Video> }) => {
 			>
 				<div className="inline-flex gap-2">
 					<span className="bg-foreground text-primary px-1 rounded-sm text-bold">
-						{video.index}
+						{video.number}
 					</span>
 					{video.topic}
 				</div>
@@ -54,7 +54,7 @@ export const VideoSelector = () => {
 					videos.map((video, i) => ({
 						...video,
 						selected: true,
-						index: videos.length - i,
+						number: videos.length - i,
 					})),
 				)
 				.then(setVideo);
