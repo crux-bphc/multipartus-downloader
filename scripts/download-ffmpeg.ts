@@ -1,5 +1,6 @@
 import { $ } from "bun";
 import { dirname, join } from "node:path";
+import { mkdir } from "node:fs/promises";
 
 /**
  * Mapping of binaries from release to where we are storing locally
@@ -18,6 +19,7 @@ const sidecarDirectory = join(
 	dirname(import.meta.dirname),
 	"./src-tauri/binaries",
 );
+await mkdir(sidecarDirectory, { recursive: true });
 
 async function download(targetTriple: keyof typeof binaries) {
 	const target = join(sidecarDirectory, `ffmpeg-${targetTriple}`);
