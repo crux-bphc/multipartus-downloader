@@ -57,7 +57,8 @@ async fn authenticated_request(client: &reqwest::Client, url: &str, token: &str)
     let request = 
     client
         .get(url)
-        .header("authorization", format!("Bearer {token}"));
+        .header("authorization", format!("Bearer {token}"))
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0");
     match request.send().await {
         Ok(response) => Ok(response),
         Err(error) => Err(error.into()),
@@ -135,6 +136,8 @@ pub async fn generate_m3u8_tmp_file(
 
     let mut out = String::with_capacity(text.len());
 
+    let mut side = 1u8;
+
     // "parse" the first 6 lines. These are "headers"?
     // TODO: Add a loop that does not parse just 6 lines?
     for _ in 0..6 {
@@ -153,7 +156,17 @@ pub async fn generate_m3u8_tmp_file(
     // Process each .ts file and create a local, unencrypted copy of it and add it to the out string
     loop {
         // Assuming the .m3u8 file matches the spec, it will always follow #header\nuri\n
-        let header = m3u8_lines.next().unwrap();
+        let mut header = m3u8_lines.next().unwrap();
+
+        // Other view of the lecture
+        if header.starts_with("#EXT-X-DISCONTINUITY") {
+            
+            out += header;
+            out.push('\n');
+
+            header = m3u8_lines.next().unwrap();
+            side = 2;
+        }
 
         // Stop if the playlist has ended
         if header.starts_with("#EXT-X-ENDLIST") {
@@ -167,21 +180,21 @@ pub async fn generate_m3u8_tmp_file(
     
         if LOGS { println!("ts_url {ts_url}"); }
 
-        let mut ts_data = authenticated_result_bytes(&client, ts_url, ID_TOKEN).await?;
-        
-        // Decrypt the file
-        decrypt(&mut ts_data, key.as_slice())?;    
-
-        
         let mut ts_store_location = 
             std::path::Path::new(M3U8_LOCATION)
                 .join("ts_store");
 
         std::fs::create_dir_all(&ts_store_location).unwrap();
 
-        ts_store_location.push(format!("tmp_{filename}_{i}.ts"));
+        ts_store_location.push(format!("tmp_ttid-{ttid}_{filename}_side-{side}_{i}.ts"));
 
         let ts_store_name = ts_store_location.to_str().unwrap();
+
+        if let Ok(true) = std::fs::exists(&ts_store_location) {
+            if LOGS { println!("Already downloaded. Skipping to next..."); }
+            i += 1;
+            continue;
+        }
 
         // Create a local unencrypted copy of the .ts file
         let mut ts_store = match std::fs::File::create(&ts_store_location) {
@@ -193,6 +206,11 @@ pub async fn generate_m3u8_tmp_file(
             Ok(file) => file,
         };
 
+        let mut ts_data = authenticated_result_bytes(&client, ts_url, ID_TOKEN).await?;
+        
+        // Decrypt the file
+        decrypt(&mut ts_data, key.as_slice())?;    
+
         if let Err(error) = ts_store.write(&ts_data) {
             return Err(error.into());
         };
@@ -201,7 +219,9 @@ pub async fn generate_m3u8_tmp_file(
 
         // Attach original header and path to newly created file
         out += header;
+        out.push('\n');
         out += ts_store_name;
+        out.push('\n');
 
         drop(ts_store);
 
