@@ -1,15 +1,26 @@
 import { subjectAtom, videosAtom } from "@/lib/atoms";
+import { logtoClient } from "@/lib/logto";
+import { Channel, invoke } from "@tauri-apps/api/core";
+import { join } from "@tauri-apps/api/path";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useAtomValue } from "jotai";
 import { BirdIcon, DownloadIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { LectureSelector } from "./lecture-selector";
 import { SubjectSelector } from "./subject-selector";
 import { Button } from "./ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogTitle,
+} from "./ui/dialog";
+import { Progress } from "./ui/progress";
 import { MasterSelects, VideoSelector } from "./video-selector";
-import { invoke } from '@tauri-apps/api/core';
-import { logtoClient } from "@/lib/logto";
-import { open } from '@tauri-apps/plugin-dialog';
-import { join } from '@tauri-apps/api/path';
+
+type DownloadProgressEvent = {
+	data: string;
+};
 
 const DownloadButton = () => {
 	const videos = useAtomValue(videosAtom);
@@ -17,26 +28,38 @@ const DownloadButton = () => {
 		() => videos.filter((v) => v.selected),
 		[videos],
 	);
+	const [open, setOpen] = useState(false);
+
+	const onProgress = new Channel<DownloadProgressEvent>();
+	onProgress.onmessage = () => {};
 
 	async function handleClick() {
-		const baseFolder = await open({
+		const baseFolder = await openDialog({
 			directory: true,
-			multiple: false
+			multiple: false,
 		});
 		if (!baseFolder) return;
 
-		const folder = await join(baseFolder, 'BITS TEMP');
-
+		const folder = await join(baseFolder, "BITS TEMP");
 
 		const token = await logtoClient.getIdToken();
-		await invoke('download', { token, folder, videos: selectedVideos });
+		setOpen(true);
+		await invoke("download", { token, folder, videos: selectedVideos });
+		setOpen(false);
 	}
 
 	return (
-		<Button disabled={selectedVideos.length === 0} onClick={handleClick}>
-			({selectedVideos.length}) Download
-			<DownloadIcon />
-		</Button>
+		<Dialog open={open} onOpenChange={setOpen}>
+			<Button disabled={selectedVideos.length === 0} onClick={handleClick}>
+				({selectedVideos.length}) Download
+				<DownloadIcon />
+			</Button>
+			<DialogContent>
+				<DialogTitle>Download Progress</DialogTitle>
+				<DialogDescription>TODO</DialogDescription>
+				<Progress value={50} />
+			</DialogContent>
+		</Dialog>
 	);
 };
 
