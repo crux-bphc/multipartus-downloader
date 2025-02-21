@@ -27,6 +27,7 @@
     "@radix-ui/react-slot": "^1.1.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.2.0",
+    "@tauri-apps/plugin-http": "^2.3.0",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-shell": "^2.2.0",
     "@vitejs/plugin-react": "^4.3.4",

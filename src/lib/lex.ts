@@ -1,3 +1,4 @@
+import { fetch } from "@tauri-apps/plugin-http";
 import { logtoClient } from "./logto";
 
 export async function fetchLex<T>(url: string, init?: RequestInit): Promise<T> {
