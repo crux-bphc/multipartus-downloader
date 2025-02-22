@@ -1,3 +1,5 @@
+pub mod downloader;
+
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -114,8 +116,7 @@ pub async fn download(token: String, folder: String, videos: Vec<Video>) -> Resu
     for video in videos {
         let ttid_dir = temp_dir.join(video.ttid.to_string());
 
-        fs::create_dir(&ttid_dir)
-            .expect("Failed to create folder");
+        fs::create_dir(&ttid_dir).expect("Failed to create folder");
 
         let decryption_key = client
             .get(format!("{BASE_URL}/ttid/{ttid}/key", ttid = video.ttid))
