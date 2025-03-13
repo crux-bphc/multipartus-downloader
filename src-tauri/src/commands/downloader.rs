@@ -117,13 +117,13 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
     // Side = 0 -> Parse first headers, side = 1 / 2: Different views
     let mut side = 0u8;
 
+    // TODO: Remove if unused in the future.
     // For later
     let number_of_ts_files = (m3u8_lines.clone().count() - 8) / 2;
-
-    let mut perc_downloaded: f32 = 0f32;
+    let mut _perc_downloaded = 0f32;
 
     // Get the folder to store the .ts files
-    let mut ts_store_location = std::path::Path::new(&temp).join("ts_store");
+    let ts_store_location = std::path::Path::new(&temp).join("ts_store");
 
     // Create the folder if it does not exist
     std::fs::create_dir_all(&ts_store_location)
@@ -193,16 +193,13 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
 
         if let Ok(true) = std::fs::exists(&ts_store_location) {
             // TODO: Remove
-            println!("Already downloaded `{ts_store_path}`. Skipping to next...");
+            // println!("Already downloaded `{ts_store_path}`. Skipping to next...");
             continue;
         }
 
         download_ts_file(ts_store_path, id_token, ts_url).await?;
 
-        perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
-
-        // TODO: Remove
-        println!("[{ttid}] Now at {perc_downloaded}% to completion.");
+        _perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
     }
 
     // End playlist

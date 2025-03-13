@@ -1,7 +1,6 @@
 import { subjectAtom, videosAtom } from "@/lib/atoms";
 import { logtoClient } from "@/lib/logto";
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { join } from "@tauri-apps/api/path";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useAtomValue } from "jotai";
 import { BirdIcon, DownloadIcon } from "lucide-react";
@@ -19,7 +18,7 @@ import { Progress } from "./ui/progress";
 import { MasterSelects, VideoSelector } from "./video-selector";
 
 type DownloadProgressEvent = {
-	data: string;
+	percent: number;
 };
 
 const DownloadButton = () => {
@@ -29,11 +28,13 @@ const DownloadButton = () => {
 		[videos],
 	);
 	const [open, setOpen] = useState(false);
+	let [progressPercentage, setProgressPercentage] = useState(0);
 
 	const onProgress = new Channel<DownloadProgressEvent>();
-	onProgress.onmessage = () => {};
+	onProgress.onmessage = (message) => setProgressPercentage(message?.percent);
 
 	async function handleClick() {
+		setProgressPercentage(0);
 		const baseFolder = await openDialog({
 			directory: true,
 			multiple: false,
@@ -44,7 +45,7 @@ const DownloadButton = () => {
 		setOpen(true);
 		// Use base folder instead of adding temp, since the temp file is chosen to be the default temp
 		// file of the operating system.
-		await invoke("download", { token, folder: baseFolder, videos: selectedVideos });
+		await invoke("download", { token, folder: baseFolder, videos: selectedVideos, onProgress });
 		setOpen(false);
 	}
 
@@ -57,7 +58,7 @@ const DownloadButton = () => {
 			<DialogContent>
 				<DialogTitle>Download Progress</DialogTitle>
 				<DialogDescription>TODO</DialogDescription>
-				<Progress value={50} />
+				<Progress value={progressPercentage} />
 			</DialogContent>
 		</Dialog>
 	);
