@@ -40,11 +40,11 @@ const DownloadButton = () => {
 		});
 		if (!baseFolder) return;
 
-		const folder = await join(baseFolder, "BITS TEMP");
-
 		const token = await logtoClient.getIdToken();
 		setOpen(true);
-		await invoke("download", { token, folder, videos: selectedVideos });
+		// Use base folder instead of adding temp, since the temp file is chosen to be the default temp
+		// file of the operating system.
+		await invoke("download", { token, folder: baseFolder, videos: selectedVideos });
 		setOpen(false);
 	}
 
