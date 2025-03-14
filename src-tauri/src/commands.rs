@@ -60,12 +60,12 @@ pub async fn download(
     }
 
     while let Some(res) = set.join_next().await {
-        count_downloaded += 1;
-        if let Some((number, err)) = res.map_err(|e| e.to_string())?.err() {
-            count_downloaded -= 1;
+        if let Err((number, err)) = res.map_err(|e| e.to_string())? {
             let _ = on_error.send(DownloadErrorEvent {
                 errors: vec![format!("failed to download Lecture-{number}: {err}")],
             });
+        } else {
+            count_downloaded += 1;
         }
 
         perc_downloaded = (count_downloaded as f32 / num_videos as f32) * 100.0;
