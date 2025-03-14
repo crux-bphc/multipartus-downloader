@@ -22,6 +22,13 @@ pub struct DownloadErrorEvent {
     errors: Vec<String>,
 }
 
+fn remove_special(string: &str) -> String {
+    string
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace() || c == &'_' || c == &'.')
+        .collect()
+}
+
 #[tauri::command]
 pub async fn download(
     token: String,
@@ -42,7 +49,7 @@ pub async fn download(
         let local_token: Arc<String> = Arc::clone(&token);
 
         set.spawn(async move {
-            let video_file = &format!("{}-{}", video.topic, video.number);
+            let video_file = &format!("{}-{}", remove_special(&video.topic), video.number);
             println!("Attempting to download `{video_file}`...");
             if let Err(error) =
                 download_playlist(&local_token, video.ttid as usize, &video_file).await

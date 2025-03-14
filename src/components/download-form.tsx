@@ -36,6 +36,7 @@ const DownloadButton = () => {
 	const [open, setOpen] = useState(false);
 	let [progressPercentage, setProgressPercentage] = useState(0);
 	let [errors, setErrors] = useState<string[]>([]);
+	let [complete, setComplete] = useState(false);
 
 	const onProgress = new Channel<DownloadProgressEvent>();
 	onProgress.onmessage = (message) => setProgressPercentage(message?.percent);
@@ -46,6 +47,7 @@ const DownloadButton = () => {
 	async function handleClick() {
 		setProgressPercentage(0);
 		setErrors([]);
+		setComplete(false);
 
 		const baseFolder = await openDialog({
 			directory: true,
@@ -58,6 +60,7 @@ const DownloadButton = () => {
 		// Use base folder instead of adding temp, since the temp file is chosen to be the default temp
 		// file of the operating system.
 		await invoke("download", { token, folder: baseFolder, videos: selectedVideos, onProgress, onError });
+		setComplete(true);
 	}
 
 	return (
@@ -81,7 +84,7 @@ const DownloadButton = () => {
 						</span>
 					))}
 				</div>
-				<Button onClick={() => setOpen(false)}>Ok</Button>
+				<Button onClick={() => setOpen(false)} disabled={!complete}>Ok</Button>
 			</DialogContent>
 		</Dialog>
 	);
