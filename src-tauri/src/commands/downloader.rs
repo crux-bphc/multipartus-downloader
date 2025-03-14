@@ -3,11 +3,12 @@ use std::{fmt::Display, io::Write};
 use anyhow::{Context, Result};
 
 use tauri_plugin_http::reqwest::{self, Client};
+use tokio::io::AsyncWriteExt;
 
 use std::sync::LazyLock;
 
 // A static instance of a client, so that just one client is used for all requests
-static CLIENT: LazyLock<Client> = LazyLock::new(|| Client::new());
+static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
 #[derive(Debug)]
 pub struct DownloadError {
@@ -32,12 +33,12 @@ impl std::error::Error for DownloadError {}
 
 /// References static client to perform a GET request with the token auth header
 async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
-    Ok(CLIENT
+    CLIENT
         .get(url)
         .header(reqwest::header::AUTHORIZATION, format!("Bearer {id_token}"))
         .send()
         .await
-        .context(format!("Failed to GET data from url \"{url}\"!"))?)
+        .context(format!("Failed to GET data from url \"{url}\"!"))
 }
 
 /// Creates an m3u8 file referencing local unencrypted .ts files
@@ -52,7 +53,7 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
     let temp = temp_location.as_path().to_str().unwrap_or("./tmp");
 
     // Create this temp location if it doesn't exist
-    std::fs::create_dir_all(&temp)
+    std::fs::create_dir_all(temp)
         .context(format!("Failed to create temporary directory {}!", temp))?;
 
     let base = std::env::var("BASE").context("Failed to fetch environment variable `BASE`!")?;
@@ -80,7 +81,7 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
     ))?;
 
     // Get .m3u8 file that contains the video chunks
-    let m3u8_in_text = get(&high_res_m3u8, id_token)
+    let m3u8_in_text = get(high_res_m3u8, id_token)
         .await
         .context("Failed to fetch playlist file!")?
         .text()
@@ -127,7 +128,7 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
 
     // Create the folder if it does not exist
     std::fs::create_dir_all(&ts_store_location)
-        .context(format!("Failed to create `ts_store` directory!"))?;
+        .context("Failed to create `ts_store` directory!")?;
 
     // Process each .ts file and create a local copy of it and add it to the out string
     loop {
@@ -191,7 +192,8 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
 
         i += 1;
 
-        if let Ok(true) = std::fs::exists(&ts_store_location) {
+        // TODO: what happens when io error?
+        if let Ok(true) = tokio::fs::try_exists(&ts_store_location).await {
             // TODO: Remove
             // println!("Already downloaded `{ts_store_path}`. Skipping to next...");
             continue;
@@ -205,19 +207,23 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
     // End playlist
     out += "#EXT-X-ENDLIST";
 
-    let mut m3u8_out = std::fs::File::create(&m3u8_file_path).context(format!(
-        "Failed to create playlist file at {m3u8_file_path}!"
-    ))?;
+    {
+        let mut m3u8_out = tokio::fs::File::create(&m3u8_file_path)
+            .await
+            .context(format!(
+                "Failed to create playlist file at {m3u8_file_path}!"
+            ))?;
 
-    m3u8_out
-        .write(out.as_bytes())
-        .context("Failed to write to temporary playlist file!")?;
+        m3u8_out
+            .write(out.as_bytes())
+            .await
+            .context("Failed to write to temporary playlist file!")?;
 
-    m3u8_out
-        .flush()
-        .context("Failed to flush temporary playlist file!")?;
-
-    drop(m3u8_out);
+        m3u8_out
+            .flush()
+            .await
+            .context("Failed to flush temporary playlist file!")?;
+    }
 
     // TODO: Remove
     println!("Output .m3u8 created at: `{m3u8_file_path}`");
@@ -235,17 +241,20 @@ async fn download_ts_file(file_path: &str, id_token: &str, url: &str) -> Result<
         .to_vec();
 
     // Create a local copy of the .ts file
-    let mut ts_store = std::fs::File::create(&file_path)
+    let mut ts_store = tokio::fs::File::create(&file_path)
+        .await
         .context(format!("Failed to create `.ts` file at {file_path}!"))?;
 
     // Populate the .ts file
     ts_store
         .write(&ts_data)
+        .await
         .context("Failed to write video chunk!")?;
 
-    ts_store.flush().context("Failed to flush video chunk!")?;
-
-    drop(ts_store);
+    ts_store
+        .flush()
+        .await
+        .context("Failed to flush video chunk!")?;
 
     Ok(())
 }

@@ -51,11 +51,9 @@ pub async fn download(
         set.spawn(async move {
             let video_file = &format!("{}-{}", remove_special(&video.topic), video.number);
             println!("Attempting to download `{video_file}`...");
-            if let Err(error) =
-                download_playlist(&local_token, video.ttid as usize, &video_file).await
-            {
-                return Err((video.number, error));
-            }
+            download_playlist(&local_token, video.ttid as usize, video_file)
+                .await
+                .map_err(|e| (video.number, e))?;
             println!("Finished download of video file");
             Ok(())
         });
@@ -63,31 +61,20 @@ pub async fn download(
 
     while let Some(res) = set.join_next().await {
         count_downloaded += 1;
-        match res {
-            Err(error) => {
-                return Err(error.to_string());
-            }
-            Ok(Err((number, error))) => {
-                count_downloaded -= 1;
-                let error = format!("Failed to download Lecture-{number}: {error}");
-                on_error
-                    .send(DownloadErrorEvent {
-                        errors: vec![error],
-                    })
-                    .unwrap_or(());
-            }
-            Ok(Ok(())) => (),
+        if let Some((number, err)) = res.map_err(|e| e.to_string())?.err() {
+            count_downloaded -= 1;
+            let _ = on_error.send(DownloadErrorEvent {
+                errors: vec![format!("failed to download Lecture-{number}: {err}")],
+            });
         }
 
         perc_downloaded = (count_downloaded as f32 / num_videos as f32) * 100.0;
         println!("Downloaded {}%", perc_downloaded);
 
         // Even if there's an error, ignore it, since it's not vital for the download operation
-        on_progress
-            .send(DownloadProgressEvent {
-                percent: perc_downloaded,
-            })
-            .unwrap_or(());
+        let _ = on_progress.send(DownloadProgressEvent {
+            percent: perc_downloaded,
+        });
     }
 
     Ok(())
