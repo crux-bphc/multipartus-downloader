@@ -21,6 +21,12 @@ type DownloadProgressEvent = {
 	percent: number;
 };
 
+
+type DownloadErrorEvent = {
+	errors: string[];
+};
+
+
 const DownloadButton = () => {
 	const videos = useAtomValue(videosAtom);
 	const selectedVideos = useMemo(
@@ -29,12 +35,18 @@ const DownloadButton = () => {
 	);
 	const [open, setOpen] = useState(false);
 	let [progressPercentage, setProgressPercentage] = useState(0);
+	let [errors, setErrors] = useState<string[]>([]);
 
 	const onProgress = new Channel<DownloadProgressEvent>();
 	onProgress.onmessage = (message) => setProgressPercentage(message?.percent);
 
+	const onError = new Channel<DownloadErrorEvent>();
+	onError.onmessage = (message) => setErrors(prevErrors => [...prevErrors, ...message.errors]);
+
 	async function handleClick() {
 		setProgressPercentage(0);
+		setErrors([]);
+
 		const baseFolder = await openDialog({
 			directory: true,
 			multiple: false,
@@ -45,8 +57,7 @@ const DownloadButton = () => {
 		setOpen(true);
 		// Use base folder instead of adding temp, since the temp file is chosen to be the default temp
 		// file of the operating system.
-		await invoke("download", { token, folder: baseFolder, videos: selectedVideos, onProgress });
-		setOpen(false);
+		await invoke("download", { token, folder: baseFolder, videos: selectedVideos, onProgress, onError });
 	}
 
 	return (
@@ -56,9 +67,21 @@ const DownloadButton = () => {
 				<DownloadIcon />
 			</Button>
 			<DialogContent>
-				<DialogTitle>Download Progress</DialogTitle>
-				<DialogDescription>TODO</DialogDescription>
+				<DialogTitle>Downloading Your Lectures...</DialogTitle>
+				<DialogDescription>{progressPercentage}% Complete</DialogDescription>
 				<Progress value={progressPercentage} />
+				{errors.length > 0 ? <b>Errors:<br/></b> : <></> }
+				
+				{/* idk what to put for max height to make it look decent */}
+				<div style={ { color: "red", overflow: "auto", maxHeight: "100px" } }>
+					{errors.map((error, i) => (
+						<span key={i}>
+							{error}
+							{i < errors.length - 1 && <br />}
+						</span>
+					))}
+				</div>
+				<Button onClick={() => setOpen(false)}>Ok</Button>
 			</DialogContent>
 		</Dialog>
 	);
