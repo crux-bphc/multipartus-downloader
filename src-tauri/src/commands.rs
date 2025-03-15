@@ -1,8 +1,11 @@
 pub mod downloader;
 
 use downloader::download_playlist;
-use std::sync::Arc;
-use tauri::{ipc::Channel, Manager};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+use tauri::ipc::Channel;
 use tauri_plugin_shell::{
     process::{CommandEvent, TerminatedPayload},
     ShellExt,
@@ -67,7 +70,18 @@ pub async fn download(
 
             println!("Downloaded video playlist. Attempting to generate output mp4...");
 
-            let location = format!("{folder_ref}/{video_file}.mp4");
+            let mut location = PathBuf::new().join(format!("{folder_ref}/{video_file}.mp4"));
+            let mut i = 1;
+
+            // Creates a new file instead of attempting to replace it
+            // since ffmpeg puts up a y/n prompt and waits till input,
+            // This is an easier solution to that problem
+            while location.exists() {
+                location.pop();
+                location.push(format!("{video_file} ({i}).mp4"));
+                i += 1;
+            }
+
             let ffmpeg = app_ref
                 .shell()
                 .sidecar("ffmpeg")
@@ -87,7 +101,12 @@ pub async fn download(
                     "1",
                     "-c",
                     "copy",
-                    &location,
+                    location.to_str().ok_or(()).map_err(|_| {
+                        (
+                            video.number,
+                            "Failed to access provided download location!".to_string(),
+                        )
+                    })?,
                 ]);
 
             let mut ffmpeg_errors = String::new();
@@ -121,7 +140,10 @@ pub async fn download(
                 return Err((video.number, ffmpeg_errors));
             }
 
-            println!("Generated output mp4 sucessfully at `{location}`");
+            println!(
+                "Generated output mp4 sucessfully at `{}`",
+                location.to_str().unwrap_or("")
+            );
             Ok(())
         });
     }

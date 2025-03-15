@@ -1,4 +1,4 @@
-use std::{fmt::Display, io::Write};
+use std::io::Write;
 
 use anyhow::{Context, Result};
 
@@ -9,27 +9,6 @@ use std::sync::LazyLock;
 
 // A static instance of a client, so that just one client is used for all requests
 static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
-
-#[derive(Debug)]
-pub struct DownloadError {
-    error_string: String,
-}
-
-impl DownloadError {
-    fn new(message: String) -> Self {
-        Self {
-            error_string: message,
-        }
-    }
-}
-
-impl Display for DownloadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.error_string)
-    }
-}
-
-impl std::error::Error for DownloadError {}
 
 /// References static client to perform a GET request with the token auth header
 async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
