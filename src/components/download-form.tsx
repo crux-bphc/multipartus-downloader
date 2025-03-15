@@ -76,7 +76,7 @@ const DownloadButton = () => {
 				{errors.length > 0 ? <b>Errors:<br/></b> : <></> }
 				
 				{/* idk what to put for max height to make it look decent */}
-				<div style={ { color: "red", overflow: "auto", maxHeight: "100px" } }>
+				<div style={ { color: "red", overflow: "auto", maxHeight: "100px", whiteSpace: "pre-wrap" } }>
 					{errors.map((error, i) => (
 						<span key={i}>
 							{error}

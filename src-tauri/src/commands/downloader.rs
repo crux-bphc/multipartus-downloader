@@ -41,8 +41,18 @@ async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
         .context(format!("Failed to GET data from url \"{url}\"!"))
 }
 
+// TODOS: Not in order of importance:
+// 1. Select resoultion of download
+// 2. Improve error messages
+// 3. Calculate more fine-grained completion percentage
+// 4. Remove / reduce debug logging
+
 /// Creates an m3u8 file referencing local unencrypted .ts files
-pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> Result<()> {
+pub async fn download_playlist(
+    id_token: &str,
+    ttid: usize,
+    filename: &str,
+) -> Result<(String, String)> {
     // Get env variables
 
     // {temp}/multipartus-downloader/Lecture-<lecture-ttid>
@@ -63,7 +73,8 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
     let key_url = format!("{base}/impartus/ttid/{ttid}/key");
 
     // Temp locations to store the files used for generating outputs
-    let m3u8_file_path = format!("{temp}/{filename}.m3u8");
+    let m3u8_side1_file_path = format!("{temp}/{filename}_side_1.m3u8");
+    let m3u8_side2_file_path = format!("{temp}/{filename}_side_2.m3u8");
     let key_file_path = format!("{temp}/{filename}.key.key");
 
     // I hope you love these beautiful waterfalls @TheComputerM :)
@@ -113,7 +124,8 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
 
     let mut i = 0u32;
 
-    let mut out = String::with_capacity(m3u8_in_text.len());
+    let mut out_1 = String::with_capacity(m3u8_in_text.len() / 2);
+    let mut out_2 = String::with_capacity(m3u8_in_text.len() / 2);
 
     // Side = 0 -> Parse first headers, side = 1 / 2: Different views
     let mut side = 0u8;
@@ -137,15 +149,14 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
             .next()
             .context("Failed to read input playlist!")?;
 
-        if header.starts_with("#EXTINF") && side != 2 {
+        if side == 0 && header.starts_with("#EXTINF") {
+            // Copy headers to side 2
+            out_2 = out_1.clone();
             side = 1;
         }
 
         // Other view of the lecture
         if header.starts_with("#EXT-X-DISCONTINUITY") {
-            out += header;
-            out.push('\n');
-
             header = m3u8_lines.next().unwrap();
             side = 2;
         }
@@ -164,12 +175,12 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
                     .next()
                     .context("Failed to parse key method of recieved playlist file!")?;
 
-                let ext_header = format!("{key_method},URI=\"{key_file_path}\"\n");
+                let ext_header = format!("{key_method},URI={key_file_path:?}\n");
 
-                out += &ext_header;
+                out_1 += &ext_header;
             } else {
-                out += header;
-                out.push('\n');
+                out_1 += header;
+                out_1.push('\n');
             }
             continue;
         }
@@ -184,10 +195,12 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
         // Failable?
         let ts_store_path = ts_store_location.to_str().unwrap();
 
+        let out = if side == 1 { &mut out_1 } else { &mut out_2 };
+
         // Attach original header and path to file that will be created next
-        out += header;
+        *out += header;
         out.push('\n');
-        out += ts_store_path;
+        *out += ts_store_path;
         out.push('\n');
 
         i += 1;
@@ -205,28 +218,34 @@ pub async fn download_playlist(id_token: &str, ttid: usize, filename: &str) -> R
     }
 
     // End playlist
-    out += "#EXT-X-ENDLIST";
+    out_1 += "#EXT-X-ENDLIST";
+    out_2 += "#EXT-X-ENDLIST";
 
-    {
-        let mut m3u8_out = tokio::fs::File::create(&m3u8_file_path)
-            .await
-            .context(format!(
-                "Failed to create playlist file at {m3u8_file_path}!"
-            ))?;
-
-        m3u8_out
-            .write(out.as_bytes())
-            .await
-            .context("Failed to write to temporary playlist file!")?;
-
-        m3u8_out
-            .flush()
-            .await
-            .context("Failed to flush temporary playlist file!")?;
-    }
+    write_m3u8(&m3u8_side1_file_path, out_1).await?;
+    write_m3u8(&m3u8_side2_file_path, out_2).await?;
 
     // TODO: Remove
-    println!("Output .m3u8 created at: `{m3u8_file_path}`");
+    println!("Output .m3u8 created at: `{m3u8_side1_file_path}`, `{m3u8_side2_file_path}`");
+
+    Ok((m3u8_side1_file_path, m3u8_side2_file_path))
+}
+
+async fn write_m3u8(filepath: &String, out: String) -> Result<()> {
+    let mut m3u8_out = tokio::fs::File::create(&filepath)
+        .await
+        .context(format!("Failed to create playlist file at {filepath}!"))?;
+
+    m3u8_out
+        .write(out.as_bytes())
+        .await
+        .context("Failed to write to temporary playlist file!")?;
+
+    m3u8_out
+        .flush()
+        .await
+        .context("Failed to flush temporary playlist file!")?;
+
+    drop(m3u8_out);
 
     Ok(())
 }
