@@ -26,7 +26,6 @@ type DownloadErrorEvent = {
 	errors: string[];
 };
 
-
 const DownloadButton = () => {
 	const videos = useAtomValue(videosAtom);
 	const selectedVideos = useMemo(
@@ -76,7 +75,7 @@ const DownloadButton = () => {
 				{errors.length > 0 ? <b>Errors:<br/></b> : <></> }
 				
 				{/* idk what to put for max height to make it look decent */}
-				<div style={ { color: "red", overflow: "auto", maxHeight: "100px", whiteSpace: "pre-wrap" } }>
+				<div className="whitespace-pre-wrap max-h-28 overflow-auto text-red-600">
 					{errors.map((error, i) => (
 						<span key={i}>
 							{error}
@@ -84,7 +83,10 @@ const DownloadButton = () => {
 						</span>
 					))}
 				</div>
-				<Button onClick={() => setOpen(false)} disabled={!complete}>Ok</Button>
+				<span style={ { gridTemplateColumns: "1fr 1fr" } } className="grid gap-4">
+					<Button onClick={() => setOpen(false)} disabled={!complete}>Ok</Button>
+					<Button onClick={() => invoke('cancel_download')} disabled={complete} variant={"destructive"}>Cancel</Button>
+				</span>
 			</DialogContent>
 		</Dialog>
 	);
@@ -108,7 +110,7 @@ export const DownloadForm = () => {
 			) : (
 				<div className="flex flex-col gap-6 justify-center items-center py-12">
 					<BirdIcon className="size-64 text-muted-foreground" />
-					<p className="leading-7">no subject selected</p>
+					<p className="leading-7">No subject selected</p>
 				</div>
 			)}
 		</div>
