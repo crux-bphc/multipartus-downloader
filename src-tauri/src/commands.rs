@@ -42,8 +42,10 @@ async fn download_mp4(
     folder: Arc<String>,
     app: Arc<AppHandle>,
 ) -> Result<(), (i32, String)> {
+
     let video_file = &format!("{}-{}", remove_special(&video.topic), video.number);
     println!("Attempting to download `{video_file}`...");
+
     let (side1, side2) = download_playlist(&token, video.ttid as usize, video_file)
         .await
         .map_err(|e| (video.number, e.to_string()))?;
@@ -52,6 +54,7 @@ async fn download_mp4(
 
     let mut location = PathBuf::new().join(format!("{folder}/{video_file}.mp4"));
     let mut i = 1;
+
     // Creates a new file instead of attempting to replace it
     // since ffmpeg puts up a y/n prompt and waits till input,
     // This is an easier solution to that problem
@@ -66,6 +69,13 @@ async fn download_mp4(
         .sidecar("ffmpeg")
         .map_err(|e| (video.number, e.to_string()))?;
 
+    let location_str = location.to_str().ok_or(()).map_err(|_| {
+        (
+            video.number,
+            "Failed to access provided download location!".to_string(),
+        )
+    })?;
+
     let mut args = vec![
         "-allowed_extensions",
         "ALL",
@@ -73,12 +83,7 @@ async fn download_mp4(
         &side1,
         "-c",
         "copy",
-        location.to_str().ok_or(()).map_err(|_| {
-            (
-                video.number,
-                "Failed to access provided download location!".to_string(),
-            )
-        })?,
+        location_str,
     ];
     if let Some(side2) = &side2 {
         args = vec![
@@ -96,12 +101,7 @@ async fn download_mp4(
             "1",
             "-c",
             "copy",
-            location.to_str().ok_or(()).map_err(|_| {
-                (
-                    video.number,
-                    "Failed to access provided download location!".to_string(),
-                )
-            })?,
+            location_str,
         ]
     }
 
