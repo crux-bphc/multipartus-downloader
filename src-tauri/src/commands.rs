@@ -9,7 +9,7 @@ use tauri_plugin_shell::{
     process::{CommandEvent, TerminatedPayload},
     ShellExt,
 };
-use tokio::{task::JoinSet, sync::Mutex};
+use tokio::{sync::Mutex, task::JoinSet};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Video {
@@ -64,8 +64,24 @@ async fn download_mp4(
     let ffmpeg = app
         .shell()
         .sidecar("ffmpeg")
-        .map_err(|e| (video.number, e.to_string()))?
-        .args([
+        .map_err(|e| (video.number, e.to_string()))?;
+
+    let mut args = vec![
+        "-allowed_extensions",
+        "ALL",
+        "-i",
+        &side1,
+        "-c",
+        "copy",
+        location.to_str().ok_or(()).map_err(|_| {
+            (
+                video.number,
+                "Failed to access provided download location!".to_string(),
+            )
+        })?,
+    ];
+    if let Some(side2) = &side2 {
+        args = vec![
             "-allowed_extensions",
             "ALL",
             "-i",
@@ -73,7 +89,7 @@ async fn download_mp4(
             "-allowed_extensions",
             "ALL",
             "-i",
-            &side2,
+            side2,
             "-map",
             "0",
             "-map",
@@ -86,7 +102,10 @@ async fn download_mp4(
                     "Failed to access provided download location!".to_string(),
                 )
             })?,
-        ]);
+        ]
+    }
+
+    let ffmpeg = ffmpeg.args(args.as_slice());
 
     let mut ffmpeg_errors = String::new();
     let (mut rx, _child) = ffmpeg.spawn().map_err(|e| (video.number, e.to_string()))?;
@@ -157,9 +176,9 @@ pub async fn download(
         let app_ref = Arc::clone(&app);
         let folder_ref = Arc::clone(&folder);
         let cancellation_token = cancellation_token.clone();
-        set.spawn(async move { 
+        set.spawn(async move {
             tokio::select! {
-                _ = cancellation_token.cancelled() => { 
+                _ = cancellation_token.cancelled() => {
                     println!("Cancelled download of Lecture-{}", video.number);
                     Err((video.number, "Cancelled".to_string()))
                 }
@@ -192,7 +211,9 @@ pub async fn download(
 }
 
 #[tauri::command]
-pub async fn cancel_download(cancellation_token: State<'_, Mutex<CancellationToken>>) -> Result<(), ()> {
+pub async fn cancel_download(
+    cancellation_token: State<'_, Mutex<CancellationToken>>,
+) -> Result<(), ()> {
     println!("Attempting to cancel all download tasks...");
     let token = cancellation_token.lock().await;
     token.cancel();

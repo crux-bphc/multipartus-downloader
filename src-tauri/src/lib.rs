@@ -12,7 +12,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_oauth::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![commands::download, commands::cancel_download])
+        .invoke_handler(tauri::generate_handler![
+            commands::download,
+            commands::cancel_download
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

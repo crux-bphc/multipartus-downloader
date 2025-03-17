@@ -31,7 +31,7 @@ pub async fn download_playlist(
     id_token: &str,
     ttid: usize,
     filename: &str,
-) -> Result<(String, String)> {
+) -> Result<(String, Option<String>)> {
     // Get env variables
 
     // {temp}/multipartus-downloader/Lecture-<lecture-ttid>
@@ -121,6 +121,8 @@ pub async fn download_playlist(
     std::fs::create_dir_all(&ts_store_location)
         .context("Failed to create `ts_store` directory!")?;
 
+    let mut side2_file_path = None;
+
     // Process each .ts file and create a local copy of it and add it to the out string
     loop {
         // Assuming the .m3u8 file matches the spec, it will always follow #header\nuri\n
@@ -138,6 +140,7 @@ pub async fn download_playlist(
         if header.starts_with("#EXT-X-DISCONTINUITY") {
             header = m3u8_lines.next().unwrap();
             side = 2;
+            side2_file_path = Some(m3u8_side2_file_path.clone());
         }
 
         // Stop if the playlist has ended
@@ -206,7 +209,7 @@ pub async fn download_playlist(
     // TODO: Remove
     println!("Output .m3u8 created at: `{m3u8_side1_file_path}`, `{m3u8_side2_file_path}`");
 
-    Ok((m3u8_side1_file_path, m3u8_side2_file_path))
+    Ok((m3u8_side1_file_path, side2_file_path))
 }
 
 async fn write_m3u8(filepath: &String, out: String) -> Result<()> {
