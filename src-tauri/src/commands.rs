@@ -42,7 +42,6 @@ async fn download_mp4(
     folder: Arc<String>,
     app: Arc<AppHandle>,
 ) -> Result<(), (i32, String)> {
-
     let video_file = &format!("{}-{}", remove_special(&video.topic), video.number);
     println!("Attempting to download `{video_file}`...");
 
@@ -134,7 +133,7 @@ async fn download_mp4(
     }
 
     if !ffmpeg_errors.is_empty() {
-        println!("ffmpeg encounntered errors: \n{ffmpeg_errors}");
+        println!("ffmpeg encountered errors: \n{ffmpeg_errors}");
         return Err((video.number, ffmpeg_errors));
     }
 
@@ -155,10 +154,11 @@ pub async fn download(
     on_progress: Channel<DownloadProgressEvent>,
     on_error: Channel<DownloadErrorEvent>,
 ) -> Result<(), String> {
-    let mut old_cancellation_token = cancellation_token.lock().await;
-    *(old_cancellation_token.deref_mut()) = CancellationToken::new();
-    let cancellation_token = old_cancellation_token.clone();
-    drop(old_cancellation_token);
+    let cancellation_token = {
+        let mut old_cancellation_token = cancellation_token.lock().await;
+        *(old_cancellation_token.deref_mut()) = CancellationToken::new();
+        old_cancellation_token.clone()
+    };
 
     let token = Arc::new(token);
     let folder = Arc::new(folder);
@@ -172,29 +172,33 @@ pub async fn download(
 
     for video in videos {
         println!("Downloading: {}", video.topic);
+
         let local_token = Arc::clone(&token);
         let app_ref = Arc::clone(&app);
         let folder_ref = Arc::clone(&folder);
         let cancellation_token = cancellation_token.clone();
+
         set.spawn(async move {
             tokio::select! {
                 _ = cancellation_token.cancelled() => {
                     println!("Cancelled download of Lecture-{}", video.number);
                     Err((video.number, "Cancelled".to_string()))
                 }
-                result = async { download_mp4(&video, local_token, folder_ref, app_ref).await } => result,
+                // does this need to be cancel safe?
+                result = download_mp4(&video, local_token, folder_ref, app_ref) => result,
             }
         });
     }
 
     while let Some(res) = set.join_next().await {
-        if let Err((number, err)) = res.map_err(|e| e.to_string())? {
-            let _ = on_error.send(DownloadErrorEvent {
-                errors: vec![format!("Failed to download Lecture-{number}: {err}")],
-            });
-        } else {
-            count_downloaded += 1;
-        }
+        match res.map_err(|e| e.to_string())? {
+            Ok(_) => count_downloaded += 1,
+            Err((number, err)) => {
+                let _ = on_error.send(DownloadErrorEvent {
+                    errors: vec![format!("Failed to download Lecture-{number}: {err}")],
+                });
+            }
+        };
 
         perc_downloaded = (count_downloaded as f32 / num_videos as f32) * 100.0;
         println!("Downloaded {}%", perc_downloaded);
@@ -204,8 +208,6 @@ pub async fn download(
             percent: perc_downloaded,
         });
     }
-
-    drop(set);
 
     Ok(())
 }
