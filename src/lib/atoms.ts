@@ -6,9 +6,5 @@ export const subjectAtom = atom<[string, string]>();
 // selected lecture section for the selected subject
 export const lectureAtom = atom<[number, number]>();
 
-export interface Video extends Multipartus.Video {
-	selected: boolean;
-	index: number;
-}
-
-export const videosAtom = atom<Video[]>([]);
+// list of videos for the selected lecture section
+export const videosAtom = atom<Multipartus.Video[]>([]);

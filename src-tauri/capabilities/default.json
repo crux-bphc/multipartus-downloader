@@ -6,13 +6,32 @@
     "main"
   ],
   "permissions": [
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://logto.local.crux-bphc.com"
+        },
+        {
+          "url": "https://lex.crux-bphc.com/api/impartus/*"
+        },
+        {
+          "url": "https://staging.lex.crux-bphc.com/api/impartus/*"
+        },
+        {        
+          "url": "http://localhost:*/impartus/*"
+        }
+      ]
+    },
     "core:default",
     "opener:default",
     {
       "identifier": "shell:allow-execute",
       "allow": [
         {
-          "args": ["-version"],
+          "args": [
+            "-version"
+          ],
           "name": "binaries/ffmpeg",
           "sidecar": true
         }
@@ -20,6 +39,7 @@
     },
     "shell:allow-open",
     "oauth:allow-start",
-    "oauth:allow-cancel"
+    "oauth:allow-cancel",
+    "dialog:allow-open"
   ]
 }
