@@ -70,7 +70,7 @@ const DownloadButton = () => {
 			</Button>
 			<DialogContent>
 				<DialogTitle>Downloading Your Lectures...</DialogTitle>
-				<DialogDescription>{progressPercentage}% Complete</DialogDescription>
+				<DialogDescription>{progressPercentage.toFixed(1)}% Complete</DialogDescription>
 				<Progress value={progressPercentage} />
 				{errors.length > 0 ? <b>Errors:<br/></b> : <></> }
 				
