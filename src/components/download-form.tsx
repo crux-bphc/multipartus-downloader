@@ -2,12 +2,23 @@ import { subjectAtom, videosAtom } from "@/lib/atoms";
 import { logtoClient } from "@/lib/logto";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { logtoClient } from "@/lib/logto";
+import { Channel, invoke } from "@tauri-apps/api/core";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useAtomValue } from "jotai";
 import { BirdIcon, DownloadIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useMemo, useState } from "react";
 import { LectureSelector } from "./lecture-selector";
 import { SubjectSelector } from "./subject-selector";
 import { Button } from "./ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogTitle,
+} from "./ui/dialog";
+import { Progress } from "./ui/progress";
 import {
 	Dialog,
 	DialogContent,
@@ -26,12 +37,53 @@ type DownloadErrorEvent = {
 	errors: string[];
 };
 
+type DownloadProgressEvent = {
+	percent: number;
+};
+
+
+type DownloadErrorEvent = {
+	errors: string[];
+};
+
 const DownloadButton = () => {
 	const videos = useAtomValue(videosAtom);
 	const selectedVideos = useMemo(
 		() => videos.filter((v) => v.selected),
+	const selectedVideos = useMemo(
+		() => videos.filter((v) => v.selected),
 		[videos],
 	);
+	const [open, setOpen] = useState(false);
+	let [progressPercentage, setProgressPercentage] = useState(0);
+	let [errors, setErrors] = useState<string[]>([]);
+	let [complete, setComplete] = useState(false);
+
+	const onProgress = new Channel<DownloadProgressEvent>();
+	onProgress.onmessage = (message) => setProgressPercentage(message?.percent);
+
+	const onError = new Channel<DownloadErrorEvent>();
+	onError.onmessage = (message) => setErrors(prevErrors => [...prevErrors, ...message.errors]);
+
+	async function handleClick() {
+		setProgressPercentage(0);
+		setErrors([]);
+		setComplete(false);
+
+		const baseFolder = await openDialog({
+			directory: true,
+			multiple: false,
+		});
+		if (!baseFolder) return;
+
+		const token = await logtoClient.getIdToken();
+		setOpen(true);
+		// Use base folder instead of adding temp, since the temp file is chosen to be the default temp
+		// file of the operating system.
+		await invoke("download", { token, folder: baseFolder, videos: selectedVideos, onProgress, onError });
+		setComplete(true);
+	}
+
 	const [open, setOpen] = useState(false);
 	let [progressPercentage, setProgressPercentage] = useState(0);
 	let [errors, setErrors] = useState<string[]>([]);
@@ -110,6 +162,7 @@ export const DownloadForm = () => {
 			) : (
 				<div className="flex flex-col gap-6 justify-center items-center py-12">
 					<BirdIcon className="size-64 text-muted-foreground" />
+					<p className="leading-7">No subject selected</p>
 					<p className="leading-7">No subject selected</p>
 				</div>
 			)}
