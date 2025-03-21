@@ -197,6 +197,7 @@ pub async fn download(
     on_progress: Channel<DownloadProgressEvent>,
     on_error: Channel<DownloadErrorEvent>,
 ) -> Result<(), String> {
+    // Reset the cancellation token
     let cancellation_token = {
         let mut old_cancellation_token = cancellation_token.lock().await;
         *(old_cancellation_token.deref_mut()) = CancellationToken::new();
@@ -210,7 +211,6 @@ pub async fn download(
     let mut set = JoinSet::new();
 
     let num_videos = videos.len();
-    let mut count_downloaded = 0u32;
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(videos.len());
 
@@ -251,13 +251,10 @@ pub async fn download(
     });
 
     while let Some(res) = set.join_next().await {
-        match res.map_err(|e| e.to_string())? {
-            Ok(_) => count_downloaded += 1,
-            Err((number, err)) => {
-                let _ = on_error.send(DownloadErrorEvent {
-                    errors: vec![format!("Failed to download Lecture-{number}: {err}")],
-                });
-            }
+        if let Err((number, err)) = res.map_err(|e| e.to_string())? {
+            let _ = on_error.send(DownloadErrorEvent {
+                errors: vec![format!("Failed to download Lecture-{number}: {err}")],
+            });
         };
     }
 

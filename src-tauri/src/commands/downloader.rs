@@ -106,10 +106,8 @@ pub async fn download_playlist(
     // Side = 0 -> Parse first headers, side = 1 / 2: Different views
     let mut side = 0u8;
 
-    // TODO: Remove if unused in the future.
-    // For later
     let number_of_ts_files = (m3u8_lines.clone().count() - 8) / 2;
-    let mut perc_downloaded = 0.0;
+    let mut perc_downloaded;
 
     // Get the folder to store the .ts files
     let ts_store_location = std::path::Path::new(&temp).join("ts_store");
@@ -184,10 +182,8 @@ pub async fn download_playlist(
 
         i += 1;
 
-        // TODO: what happens when io error?
+        // Re-downloads if io-error
         if let Ok(true) = tokio::fs::try_exists(&ts_store_location).await {
-            // TODO: Remove
-            // println!("Already downloaded `{ts_store_path}`. Skipping to next...");
             continue;
         }
 
@@ -195,8 +191,8 @@ pub async fn download_playlist(
 
         perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
 
-        // TODO: Handle errors properly
-        tx.send(perc_downloaded).unwrap();
+        // There's no need to have an error occur if the progress cannot be reported
+        tx.send(perc_downloaded).unwrap_or(());
     }
 
     // End playlist
