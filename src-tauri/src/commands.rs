@@ -3,11 +3,7 @@ pub mod downloader;
 use downloader::download_playlist;
 use tokio_util::sync::CancellationToken;
 
-use std::{
-    ops::DerefMut,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{ops::DerefMut, path::PathBuf, sync::Arc};
 use tauri::{ipc::Channel, AppHandle, State};
 use tauri_plugin_shell::{
     process::{CommandEvent, TerminatedPayload},
@@ -48,7 +44,6 @@ async fn download_mp4(
     folder: Arc<String>,
     app: Arc<AppHandle>,
 ) -> Result<(), (i32, String)> {
-
     let video_file = &format!("{}-{}", remove_special(&video.topic), video.number);
     println!("Attempting to download `{video_file}`...");
 
@@ -127,10 +122,10 @@ async fn download_mp4(
 
     let mut ffmpeg_errors = String::new();
     let (mut rx, _child) = ffmpeg.spawn().map_err(|e| (video.number, e.to_string()))?;
-    
+
     let _ = tx.send((nth, 50.0)).await;
-    
-    // Approximately 691 (for 2 sides) or 345 (for 1 side) files exist for ffmpeg to 
+
+    // Approximately 691 (for 2 sides) or 345 (for 1 side) files exist for ffmpeg to
     // compile to mp4, so including the other messages it outputs, it ends up being
     // about 2800 or 1400 outputs that count as an increment for the percentage
     // A more correct way to go about this would be to pass -progress to ffmpeg,
@@ -148,7 +143,9 @@ async fn download_mp4(
                 let _ = tx.try_send((nth, 50.0 + (output_count as f32 * 50.0 / max_count_output)));
                 output_count += 1;
                 // Unecessary most probably, but here just in case
-                if output_count > max_count_output as usize { output_count = max_count_output as usize; }
+                if output_count > max_count_output as usize {
+                    output_count = max_count_output as usize;
+                }
             }
             CommandEvent::Error(str) => {
                 ffmpeg_errors.push_str(&str);
@@ -253,13 +250,14 @@ pub async fn download(
     });
 
     while let Some(res) = set.join_next().await {
-        if let Err((number, err)) = res.map_err(|e| e.to_string())? {
-            let _ = on_error.send(DownloadErrorEvent {
-                errors: vec![format!("Failed to download Lecture-{number}: {err}")],
-            });
-        } else {
-            count_downloaded += 1;
-        }
+        match res.map_err(|e| e.to_string())? {
+            Ok(_) => count_downloaded += 1,
+            Err((number, err)) => {
+                let _ = on_error.send(DownloadErrorEvent {
+                    errors: vec![format!("Failed to download Lecture-{number}: {err}")],
+                });
+            }
+        };
 
         perc_downloaded = (count_downloaded as f32 / num_videos as f32) * 100.0;
         println!("Downloaded {}%", perc_downloaded);
