@@ -3,8 +3,8 @@
 
 mod commands;
 
+use multipartus_downloader_lib::run;
+
 fn main() {
-    // Load up dotenv
-    dotenv::dotenv().ok();
-    multipartus_downloader_lib::run()
+    run()
 }

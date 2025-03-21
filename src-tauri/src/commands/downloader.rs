@@ -9,6 +9,7 @@ use std::sync::LazyLock;
 
 // A static instance of a client, so that just one client is used for all requests
 static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
+const BASE: &str = dotenvy_macro::dotenv!("BASE");
 
 /// References static client to perform a GET request with the token auth header
 async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
@@ -28,12 +29,11 @@ async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
 
 /// Creates an m3u8 file referencing local unencrypted .ts files
 pub async fn download_playlist(
+    tx: tokio::sync::watch::Sender<f32>,
     id_token: &str,
     ttid: usize,
     filename: &str,
 ) -> Result<(String, Option<String>)> {
-    // Get env variables
-
     // {temp}/multipartus-downloader/Lecture-<lecture-ttid>
     let temp_location = std::env::temp_dir()
         .join("multipartus-downloader")
@@ -45,11 +45,9 @@ pub async fn download_playlist(
     std::fs::create_dir_all(temp)
         .context(format!("Failed to create temporary directory {}!", temp))?;
 
-    let base = std::env::var("BASE").context("Failed to fetch environment variable `BASE`!")?;
-
     // URLs to get data from
-    let m3u8_url = format!("{base}/impartus/ttid/{ttid}/m3u8");
-    let key_url = format!("{base}/impartus/ttid/{ttid}/key");
+    let m3u8_url = format!("{BASE}/impartus/ttid/{ttid}/m3u8");
+    let key_url = format!("{BASE}/impartus/ttid/{ttid}/key");
 
     // Temp locations to store the files used for generating outputs
     let m3u8_side1_file_path = format!("{temp}/{filename}_side_1.m3u8");
@@ -197,6 +195,9 @@ pub async fn download_playlist(
         download_ts_file(ts_store_path, id_token, ts_url).await?;
 
         _perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
+
+        // TODO: Handle errors properly
+        tx.send(_perc_downloaded).unwrap();
     }
 
     // End playlist
