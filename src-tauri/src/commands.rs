@@ -123,12 +123,12 @@ async fn download_mp4(
     let mut ffmpeg_errors = String::new();
     let (mut rx, _child) = ffmpeg.spawn().map_err(|e| (video.number, e.to_string()))?;
 
-    let _ = tx.send((nth, 50.0)).await;
+    let _ = tx.try_send((nth, 50.0));
 
     // Approximately 691 (for 2 sides) or 345 (for 1 side) files exist for ffmpeg to
     // compile to mp4, so including the other messages it outputs, it ends up being
     // about 2800 or 1400 outputs that count as an increment for the percentage
-    // A more correct way to go about this would be to pass -progress to ffmpeg,
+    // A more correct way to go about this would be to pass `-progress` to ffmpeg,
     // parse out_time and compare against "Duration: xx:xx:xx.xxx" parameter that's
     // produced by it when starting. But this works well enough.
     let max_count_output = (if side2.is_some() { 700.0 } else { 350.0 }) * 4.0;
@@ -173,7 +173,7 @@ async fn download_mp4(
         location.to_str().unwrap_or("")
     );
 
-    let _ = tx.send((nth, 100.0)).await;
+    let _ = tx.try_send((nth, 100.0));
     Ok(())
 }
 
@@ -197,10 +197,11 @@ pub async fn download(
     on_progress: Channel<DownloadProgressEvent>,
     on_error: Channel<DownloadErrorEvent>,
 ) -> Result<(), String> {
-    let mut old_cancellation_token = cancellation_token.lock().await;
-    *(old_cancellation_token.deref_mut()) = CancellationToken::new();
-    let cancellation_token = old_cancellation_token.clone();
-    drop(old_cancellation_token);
+    let cancellation_token = {
+        let mut old_cancellation_token = cancellation_token.lock().await;
+        *(old_cancellation_token.deref_mut()) = CancellationToken::new();
+        old_cancellation_token.clone()
+    };
 
     let token = Arc::new(token);
     let folder = Arc::new(folder);
@@ -209,7 +210,6 @@ pub async fn download(
     let mut set = JoinSet::new();
 
     let num_videos = videos.len();
-    let mut perc_downloaded;
     let mut count_downloaded = 0u32;
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(videos.len());
@@ -236,6 +236,7 @@ pub async fn download(
         });
     }
 
+    // Send progress as each download task sends a message through the mpsc channel
     tokio::spawn(async move {
         let mut channels = vec![0.0; num_videos];
 
@@ -258,9 +259,6 @@ pub async fn download(
                 });
             }
         };
-
-        perc_downloaded = (count_downloaded as f32 / num_videos as f32) * 100.0;
-        println!("Downloaded {}%", perc_downloaded);
     }
 
     drop(set);

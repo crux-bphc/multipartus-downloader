@@ -24,7 +24,6 @@ async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
 // TODOS: Not in order of importance:
 // 1. Select resoultion of download
 // 2. Improve error messages
-// 3. Calculate more fine-grained completion percentage
 // 4. Remove / reduce debug logging
 
 /// Creates an m3u8 file referencing local unencrypted .ts files
@@ -110,7 +109,7 @@ pub async fn download_playlist(
     // TODO: Remove if unused in the future.
     // For later
     let number_of_ts_files = (m3u8_lines.clone().count() - 8) / 2;
-    let mut _perc_downloaded = 0f32;
+    let mut perc_downloaded = 0.0;
 
     // Get the folder to store the .ts files
     let ts_store_location = std::path::Path::new(&temp).join("ts_store");
@@ -194,10 +193,10 @@ pub async fn download_playlist(
 
         download_ts_file(ts_store_path, id_token, ts_url).await?;
 
-        _perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
+        perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
 
         // TODO: Handle errors properly
-        tx.send(_perc_downloaded).unwrap();
+        tx.send(perc_downloaded).unwrap();
     }
 
     // End playlist
