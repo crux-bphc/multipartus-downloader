@@ -43,6 +43,10 @@ const DownloadButton = () => {
 	const onError = new Channel<DownloadErrorEvent>();
 	onError.onmessage = (message) => setErrors(prevErrors => [...prevErrors, ...message.errors]);
 
+	function openable(openState: boolean) {
+		if (complete) { setOpen(openState) }
+	}
+
 	async function handleClick() {
 		setProgressPercentage(0);
 		setErrors([]);
@@ -63,7 +67,7 @@ const DownloadButton = () => {
 	}
 
 	return (
-		<Dialog open={open} onOpenChange={setOpen}>
+		<Dialog open={open} onOpenChange={openable}>
 			<Button disabled={selectedVideos.length === 0} onClick={handleClick}>
 				({selectedVideos.length}) Download
 				<DownloadIcon />
