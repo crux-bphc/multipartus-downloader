@@ -95,10 +95,10 @@ pub async fn download_playlist(
     ))?;
 
     // Find the correct resolution
-    let (high_res_m3u8, low_res_m3u8) = if m3u8_1.contains("F854x480") {
-        (m3u8_2, m3u8_1)
-    } else {
+    let (high_res_m3u8, low_res_m3u8) = if m3u8_1.contains("F1280x720") {
         (m3u8_1, m3u8_2)
+    } else {
+        (m3u8_2, m3u8_1)
     };
 
     // Select the correct resolution
