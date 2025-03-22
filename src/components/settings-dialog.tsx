@@ -1,9 +1,9 @@
 import { Dialog, DialogPortal } from "@radix-ui/react-dialog"
 import { DialogContent, DialogHeader } from "./ui/dialog"
-import { ChevronDownIcon, Settings } from "lucide-react"
+import { Settings } from "lucide-react"
 import { Button } from "./ui/button";
 import { useState } from "react";
-import { Select, SelectContent, SelectIcon, SelectItem, SelectItemText, SelectPortal, SelectTrigger, SelectValue, SelectViewport } from "@radix-ui/react-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { invoke } from "@tauri-apps/api/core";
 
 enum Resolution {
@@ -102,27 +102,19 @@ export const SettingsDialog = () => {
 }
 
 function SelectQuality({ ...props }: React.ComponentProps<typeof Select>) {
-
     return (
         <Select {...props} >
-            <SelectTrigger className="text-nowrap min-w-42 h-10 flex items-center justify-between select-none rounded px-4 py-2 bg-primary text-primary-foreground place-self-center">
+            <SelectTrigger className="text-nowrap w-42 h-10 select-none py-2 place-self-center border-2">
                 <SelectValue placeholder="Select Quality" />
-                <SelectIcon className="inline">
-                    <ChevronDownIcon />
-                </SelectIcon>
             </SelectTrigger>
-            <SelectPortal>
-                <SelectContent style={{zIndex: 999}} className="bg-primary shadow-md rounded-md text-destructive-foreground">
-                    <SelectViewport>
-                        <SelectItem value={ Resolution.HighRes }  className="text-center rounded-t-md bg-background cursor-pointer py-2 transition-all duration-200 hover:bg-background/70 ">
-                            <SelectItemText>High Res</SelectItemText>
-                        </SelectItem>
-                        <SelectItem value={ Resolution.LowRes } className="text-center rounded-b-md bg-background cursor-pointer py-2 transition-all duration-200 hover:bg-background/70">
-                            <SelectItemText>Low Res</SelectItemText>
-                        </SelectItem>
-                    </SelectViewport>
-                </SelectContent>
-            </SelectPortal>
+            <SelectContent>
+                <SelectItem value={ Resolution.HighRes }  className="py-2">
+                    High Res
+                </SelectItem>
+                <SelectItem value={ Resolution.LowRes } className="py-2">
+                    Low Res
+                </SelectItem>
+            </SelectContent>
         </Select>
     )
 }
