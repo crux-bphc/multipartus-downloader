@@ -73,10 +73,8 @@ export const SettingsDialog = () => {
                 <DialogPortal>
                     <DialogContent>
                         <DialogHeader className="text-2xl font-bold">Settings</DialogHeader>
-                        <div className="flex gap-4">
-                            <Button variant={"destructive"} onClick={clearCache}>Clear Cache</Button>
-                            <p className="text-xs place-self-center">Clears the cache in your temporary storage<br/>Currently your cache consumes <b>{cacheSize}</b> of storage</p>
-                        </div>
+                        
+                        {/* Video resolution */}
                         <div className="flex gap-4">
                             <div className="place-self-center text-nowrap">Video Quality</div>
                             {/* setting value here is kind of hacky, but it's the easiest thing I came up with
@@ -84,6 +82,12 @@ export const SettingsDialog = () => {
                             */}
                             <SelectQuality onValueChange={setResolution} value={resolutionValue} /> 
                             <p className="text-xs place-self-center">Select the resolution you want to download<br />High Res: <b>720p</b>, Low Res: usually <b>480p</b></p>
+                        </div>
+
+                        {/* Clear cache */}
+                        <div className="flex gap-4">
+                            <Button variant={"destructive"} onClick={clearCache}>Clear Cache</Button>
+                            <p className="text-xs place-self-center">Clears the cache in your temporary storage<br/>Currently your cache consumes <b>{cacheSize}</b> of storage</p>
                         </div>
 
                         <span style={ { gridTemplateColumns: "1fr 1fr" } } className="grid gap-4">
