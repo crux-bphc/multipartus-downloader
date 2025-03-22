@@ -1,4 +1,5 @@
 import { DownloadForm } from "@/components/download-form";
+import { SettingsDialog } from "@/components/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { fetchLex } from "@/lib/lex";
 import { useAtom } from "jotai";
@@ -17,6 +18,7 @@ export const DownloadPage = () => {
 
 	return (
 		<main className="mx-auto container px-4">
+			<SettingsDialog />
 			{isValid ? (
 				<DownloadForm />
 			) : (

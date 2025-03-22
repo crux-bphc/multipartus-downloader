@@ -14,7 +14,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::download,
-            commands::cancel_download
+            commands::cancel_download,
+            commands::clear_cache,
+            commands::get_cache_size,
+            commands::save_settings,
+            commands::load_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

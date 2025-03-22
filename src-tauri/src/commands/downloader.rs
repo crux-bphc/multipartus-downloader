@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{fmt::Display, io::Write};
 
 use anyhow::{Context, Result};
 
@@ -9,6 +9,7 @@ use std::sync::LazyLock;
 
 // A static instance of a client, so that just one client is used for all requests
 static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
+const BASE: &str = dotenvy_macro::dotenv!("BASE");
 
 /// References static client to perform a GET request with the token auth header
 async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
@@ -20,20 +21,41 @@ async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
         .context(format!("Failed to GET data from url \"{url}\"!"))
 }
 
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
+pub enum Resolution {
+    /// 480p
+    LowRes,
+    /// 720p
+    HighRes,
+}
+
+impl Display for Resolution {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            if let Self::HighRes = self {
+                "high_res"
+            } else {
+                "low_res"
+            }
+        )
+    }
+}
+
 // TODOS: Not in order of importance:
 // 1. Select resoultion of download
 // 2. Improve error messages
-// 3. Calculate more fine-grained completion percentage
 // 4. Remove / reduce debug logging
 
 /// Creates an m3u8 file referencing local unencrypted .ts files
 pub async fn download_playlist(
+    resolution: Resolution,
+    tx: tokio::sync::watch::Sender<f32>,
     id_token: &str,
     ttid: usize,
     filename: &str,
 ) -> Result<(String, Option<String>)> {
-    // Get env variables
-
     // {temp}/multipartus-downloader/Lecture-<lecture-ttid>
     let temp_location = std::env::temp_dir()
         .join("multipartus-downloader")
@@ -45,11 +67,9 @@ pub async fn download_playlist(
     std::fs::create_dir_all(temp)
         .context(format!("Failed to create temporary directory {}!", temp))?;
 
-    let base = std::env::var("BASE").context("Failed to fetch environment variable `BASE`!")?;
-
     // URLs to get data from
-    let m3u8_url = format!("{base}/impartus/ttid/{ttid}/m3u8");
-    let key_url = format!("{base}/impartus/ttid/{ttid}/key");
+    let m3u8_url = format!("{BASE}/impartus/ttid/{ttid}/m3u8");
+    let key_url = format!("{BASE}/impartus/ttid/{ttid}/key");
 
     // Temp locations to store the files used for generating outputs
     let m3u8_side1_file_path = format!("{temp}/{filename}_side_1.m3u8");
@@ -65,13 +85,31 @@ pub async fn download_playlist(
         .await
         .context("Failed to read contents of index playlist file!")?;
 
-    // TODO: Pick resolution
-    let high_res_m3u8 = m3u8_index_text.lines().nth(2).context(format!(
+    // Get both resoultions
+    let m3u8_1 = m3u8_index_text.lines().nth(2).context(format!(
         "Failed to get playlist file data! {m3u8_index_text}"
     ))?;
 
+    let m3u8_2 = m3u8_index_text.lines().nth(4).context(format!(
+        "Failed to get playlist file data! {m3u8_index_text}"
+    ))?;
+
+    // Find the correct resolution
+    let (high_res_m3u8, low_res_m3u8) = if m3u8_1.contains("F1280x720") {
+        (m3u8_1, m3u8_2)
+    } else {
+        (m3u8_2, m3u8_1)
+    };
+
+    // Select the correct resolution
+    let selected_m3u8 = if let Resolution::HighRes = resolution {
+        high_res_m3u8
+    } else {
+        low_res_m3u8
+    };
+
     // Get .m3u8 file that contains the video chunks
-    let m3u8_in_text = get(high_res_m3u8, id_token)
+    let m3u8_in_text = get(selected_m3u8, id_token)
         .await
         .context("Failed to fetch playlist file!")?
         .text()
@@ -109,10 +147,8 @@ pub async fn download_playlist(
     // Side = 0 -> Parse first headers, side = 1 / 2: Different views
     let mut side = 0u8;
 
-    // TODO: Remove if unused in the future.
-    // For later
     let number_of_ts_files = (m3u8_lines.clone().count() - 8) / 2;
-    let mut _perc_downloaded = 0f32;
+    let mut perc_downloaded;
 
     // Get the folder to store the .ts files
     let ts_store_location = std::path::Path::new(&temp).join("ts_store");
@@ -171,8 +207,9 @@ pub async fn download_playlist(
         let ts_url = m3u8_lines.next().unwrap();
 
         // Get the file-name of the .ts file
-        let ts_store_location =
-            ts_store_location.join(format!("tmp_ttid-{ttid}_{filename}_side-{side}_{i}.ts"));
+        let ts_store_location = ts_store_location.join(format!(
+            "tmp_ttid_{ttid}_{filename}_side_{side}_{i}_{resolution}.ts"
+        ));
 
         // Failable?
         let ts_store_path = ts_store_location.to_str().unwrap();
@@ -187,16 +224,17 @@ pub async fn download_playlist(
 
         i += 1;
 
-        // TODO: what happens when io error?
+        // Re-downloads if io-error
         if let Ok(true) = tokio::fs::try_exists(&ts_store_location).await {
-            // TODO: Remove
-            // println!("Already downloaded `{ts_store_path}`. Skipping to next...");
             continue;
         }
 
         download_ts_file(ts_store_path, id_token, ts_url).await?;
 
-        _perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
+        perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
+
+        // There's no need to have an error occur if the progress cannot be reported
+        tx.send(perc_downloaded).unwrap_or(());
     }
 
     // End playlist
