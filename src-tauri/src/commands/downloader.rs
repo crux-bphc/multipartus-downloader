@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{fmt::Display, io::Write};
 
 use anyhow::{Context, Result};
 
@@ -21,6 +21,28 @@ async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
         .context(format!("Failed to GET data from url \"{url}\"!"))
 }
 
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
+pub enum Resolution {
+    /// 480p
+    LowRes,
+    /// 720p
+    HighRes,
+}
+
+impl Display for Resolution {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            if let Self::HighRes = self {
+                "high_res"
+            } else {
+                "low_res"
+            }
+        )
+    }
+}
+
 // TODOS: Not in order of importance:
 // 1. Select resoultion of download
 // 2. Improve error messages
@@ -28,6 +50,7 @@ async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
 
 /// Creates an m3u8 file referencing local unencrypted .ts files
 pub async fn download_playlist(
+    resolution: Resolution,
     tx: tokio::sync::watch::Sender<f32>,
     id_token: &str,
     ttid: usize,
@@ -62,13 +85,31 @@ pub async fn download_playlist(
         .await
         .context("Failed to read contents of index playlist file!")?;
 
-    // TODO: Pick resolution
-    let high_res_m3u8 = m3u8_index_text.lines().nth(2).context(format!(
+    // Get both resoultions
+    let m3u8_1 = m3u8_index_text.lines().nth(2).context(format!(
         "Failed to get playlist file data! {m3u8_index_text}"
     ))?;
 
+    let m3u8_2 = m3u8_index_text.lines().nth(4).context(format!(
+        "Failed to get playlist file data! {m3u8_index_text}"
+    ))?;
+
+    // Find the correct resolution
+    let (high_res_m3u8, low_res_m3u8) = if m3u8_1.contains("F854x480") {
+        (m3u8_2, m3u8_1)
+    } else {
+        (m3u8_1, m3u8_2)
+    };
+
+    // Select the correct resolution
+    let selected_m3u8 = if let Resolution::HighRes = resolution {
+        high_res_m3u8
+    } else {
+        low_res_m3u8
+    };
+
     // Get .m3u8 file that contains the video chunks
-    let m3u8_in_text = get(high_res_m3u8, id_token)
+    let m3u8_in_text = get(selected_m3u8, id_token)
         .await
         .context("Failed to fetch playlist file!")?
         .text()
@@ -166,8 +207,9 @@ pub async fn download_playlist(
         let ts_url = m3u8_lines.next().unwrap();
 
         // Get the file-name of the .ts file
-        let ts_store_location =
-            ts_store_location.join(format!("tmp_ttid-{ttid}_{filename}_side-{side}_{i}.ts"));
+        let ts_store_location = ts_store_location.join(format!(
+            "tmp_ttid_{ttid}_{filename}_side_{side}_{i}_{resolution}.ts"
+        ));
 
         // Failable?
         let ts_store_path = ts_store_location.to_str().unwrap();

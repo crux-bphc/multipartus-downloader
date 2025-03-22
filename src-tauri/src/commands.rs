@@ -1,15 +1,19 @@
 pub mod downloader;
 
-use downloader::download_playlist;
+use downloader::{download_playlist, Resolution};
 use tokio_util::sync::CancellationToken;
 
 use std::{ops::DerefMut, path::PathBuf, sync::Arc};
-use tauri::{ipc::Channel, AppHandle, State};
+use tauri::{ipc::Channel, AppHandle, Manager, State};
 use tauri_plugin_shell::{
     process::{CommandEvent, TerminatedPayload},
     ShellExt,
 };
-use tokio::{sync::Mutex, task::JoinSet};
+use tokio::{
+    io::AsyncWriteExt,
+    sync::Mutex,
+    task::JoinSet,
+};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Video {
@@ -28,6 +32,11 @@ pub struct DownloadErrorEvent {
     errors: Vec<String>,
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub struct Settings {
+    resolution: Resolution,
+}
+
 fn remove_special(string: &str) -> String {
     string
         .chars()
@@ -37,6 +46,7 @@ fn remove_special(string: &str) -> String {
 
 // TODO: Improve error handling
 async fn download_mp4(
+    resolution: Resolution,
     nth: usize,
     tx: Arc<tokio::sync::mpsc::Sender<(usize, f32)>>,
     video: &Video,
@@ -59,13 +69,14 @@ async fn download_mp4(
         }
     });
 
-    let (side1, side2) = download_playlist(itx, &token, video.ttid as usize, video_file)
-        .await
-        .map_err(|e| (video.number, e.to_string()))?;
+    let (side1, side2) =
+        download_playlist(resolution, itx, &token, video.ttid as usize, video_file)
+            .await
+            .map_err(|e| (video.number, e.to_string()))?;
 
     println!("Downloaded video playlist. Attempting to generate output mp4...");
 
-    let mut location = PathBuf::new().join(format!("{folder}/{video_file}.mp4"));
+    let mut location = PathBuf::new().join(format!("{folder}/{video_file}_{resolution}.mp4"));
     let mut i = 1;
 
     // Creates a new file instead of attempting to replace it
@@ -73,7 +84,7 @@ async fn download_mp4(
     // This is an easier solution to that problem
     while location.exists() {
         location.pop();
-        location.push(format!("{video_file} ({i}).mp4"));
+        location.push(format!("{video_file}_{resolution} ({i}).mp4"));
         i += 1;
     }
 
@@ -177,7 +188,6 @@ async fn download_mp4(
     Ok(())
 }
 
-// TODO: Add a way to run this function in the UI
 #[tauri::command]
 pub async fn clear_cache() -> Result<(), String> {
     let temp = std::env::temp_dir().join("multipartus-downloader");
@@ -185,6 +195,67 @@ pub async fn clear_cache() -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// Should this run on another thread?
+#[tauri::command]
+pub fn get_cache_size() -> Result<String, String> {
+    let temp = std::env::temp_dir().join("multipartus-downloader");
+    if !temp.exists() {
+        return Ok("0K".to_string());
+    }
+    dir_size::get_size_in_abbr_human_bytes(temp.as_path()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn save_settings(app: AppHandle, settings: Settings) -> Result<(), String> {
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+
+    tokio::fs::create_dir_all(&app_data)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut out = tokio::fs::File::create(app_data.join("settings.json"))
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json = serde_json::to_string(&settings).map_err(|e| e.to_string())?;
+
+    out.write(json.as_bytes())
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+
+    tokio::fs::create_dir_all(&app_data)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let out = serde_json::from_slice(
+        tokio::fs::read(app_data.join("settings.json"))
+            .await
+            .map_err(|e| e.to_string())?
+            .as_slice(),
+    ).map_err(|e| e.to_string())?;
+
+    Ok(out)
+}
+
+async fn get_resolution(app: &AppHandle) -> Resolution {
+    if let Ok(Settings { resolution }) = get_settings(app).await {
+        resolution
+    } else {
+        Resolution::HighRes
+    }
+}
+
+#[tauri::command]
+pub async fn load_settings(app: AppHandle) -> Result<Settings, String> {
+    get_settings(&app).await
 }
 
 #[tauri::command]
@@ -203,6 +274,8 @@ pub async fn download(
         *(old_cancellation_token.deref_mut()) = CancellationToken::new();
         old_cancellation_token.clone()
     };
+
+    let resolution = get_resolution(&app).await;
 
     let token = Arc::new(token);
     let folder = Arc::new(folder);
@@ -231,7 +304,7 @@ pub async fn download(
                     Err((video.number, "Cancelled".to_string()))
                 }
                 // does this need to be cancel safe?
-                result = download_mp4(i, tx_clone, &video, local_token, folder_ref, app_ref) => result,
+                result = download_mp4(resolution, i, tx_clone, &video, local_token, folder_ref, app_ref) => result,
             }
         });
     }
