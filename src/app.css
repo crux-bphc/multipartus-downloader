@@ -89,3 +89,8 @@
 		@apply bg-background text-foreground;
 	}
 }
+
+/* Makes all scrollbars dark */
+* {
+	color-scheme: dark;
+}

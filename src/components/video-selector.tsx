@@ -1,4 +1,4 @@
-import { lectureAtom, videosAtom } from "@/lib/atoms";
+import { lectureAtom, subjectAtom, videosAtom } from "@/lib/atoms";
 import { fetchLex } from "@/lib/lex";
 import { type PrimitiveAtom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
@@ -6,6 +6,12 @@ import { useEffect } from "react";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Skeleton } from "./ui/skeleton";
+import { SquareArrowOutUpRight } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import Tooltip from "./ui/tooltip";
+
+
+const base = "https://lex.crux-bphc.com/multipartus/courses";
 
 const videoAtomsAtom = splitAtom(videosAtom, (item) => item.ttid);
 
@@ -32,10 +38,20 @@ const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
 					</span>
 					{video.topic}
 				</div>
-				<span className="text-sm text-muted-foreground">
-					{formatter.format(new Date(video.startTime))}
-				</span>
+				<div className="flex gap-4">
+					<span className="text-sm text-muted-foreground">
+						{formatter.format(new Date(video.startTime))}
+					</span>
+				</div>
 			</label>
+			<Tooltip content="Watch in Lex">
+				<span 
+					onClick={async () => await openUrl(`${base}/${video.subjectID[0]}/${video.subjectID[1]}/watch/${video.ttid}`)} 
+					className="text-muted-foreground place-self-center cursor-pointer "
+				>
+					<SquareArrowOutUpRight className="size-4 text-primary transition-all duration-200 hover:text-primary/80" />
+				</span>
+			</Tooltip>
 		</div>
 	);
 };
@@ -43,10 +59,11 @@ const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
 export const VideoSelector = () => {
 	const setVideo = useSetAtom(videosAtom);
 	const lecture = useAtomValue(lectureAtom);
+	const subject = useAtomValue(subjectAtom);
 	const videoAtoms = useAtomValue(videoAtomsAtom);
 
 	useEffect(() => {
-		if (lecture) {
+		if (lecture && subject) {
 			setVideo([]);
 			// fetch new videos when lecture changes
 			fetchLex<Multipartus.Video[]>(`lecture/${lecture.join("/")}`)
@@ -55,6 +72,7 @@ export const VideoSelector = () => {
 						...video,
 						selected: true,
 						number: videos.length - i,
+						subjectID: subject,
 					})),
 				)
 				.then(setVideo);
@@ -66,12 +84,16 @@ export const VideoSelector = () => {
 	}
 
 	return (
-		<div className="flex flex-col gap-3">
-			{videoAtoms.map((video, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
-				<VideoItem key={i} video={video} />
-			))}
-		</div>
+		<>
+			<div className="flex flex-col gap-3">
+				{videoAtoms.map((video, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+					<VideoItem key={i} video={video} />
+				))}
+			</div>
+			{/* Space for the settings icon */}
+			<div className="h-10"></div>
+		</>
 	);
 };
 

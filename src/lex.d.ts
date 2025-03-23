@@ -26,6 +26,7 @@ namespace Multipartus {
 		startTime: string;
 		selected: boolean;
 		number: number;
+		subjectID: [string, string],
 	}
 
 	export type Sessions = Record<string, [number, number]>;

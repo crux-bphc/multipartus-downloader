@@ -326,7 +326,7 @@ pub async fn download(
     while let Some(res) = set.join_next().await {
         if let Err((number, err)) = res.map_err(|e| e.to_string())? {
             let _ = on_error.send(DownloadErrorEvent {
-                errors: vec![format!("Failed to download Lecture-{number}: {err}")],
+                errors: vec![format!("Failed to download Lecture-{number}"), err],
             });
         };
     }

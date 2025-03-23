@@ -23,7 +23,7 @@ type DownloadProgressEvent = {
 
 
 type DownloadErrorEvent = {
-	errors: string[];
+	errors: [string, string];
 };
 
 const DownloadButton = () => {
@@ -34,7 +34,7 @@ const DownloadButton = () => {
 	);
 	const [open, setOpen] = useState(false);
 	let [progressPercentage, setProgressPercentage] = useState(0);
-	let [errors, setErrors] = useState<string[]>([]);
+	let [errors, setErrors] = useState<[string, string][]>([]);
 	let [complete, setComplete] = useState(false);
 	let [loadingDots, setLoadingDots] = useState("");
 
@@ -42,7 +42,7 @@ const DownloadButton = () => {
 	onProgress.onmessage = (message) => setProgressPercentage(message?.percent);
 
 	const onError = new Channel<DownloadErrorEvent>();
-	onError.onmessage = (message) => setErrors(prevErrors => [...prevErrors, ...message.errors]);
+	onError.onmessage = (message) => setErrors(prevErrors => [...prevErrors, message.errors]);
 
 	function openable(openState: boolean) {
 		if (complete) { setOpen(openState) }
@@ -101,10 +101,11 @@ const DownloadButton = () => {
 				{errors.length > 0 ? <b>Errors:<br/></b> : <></> }
 				
 				{/* idk what to put for max height to make it look decent */}
-				<div className="whitespace-pre-wrap max-h-28 overflow-auto text-red-600">
+				<div className="whitespace-pre-wrap max-h-28 overflow-auto">
 					{errors.map((error, i) => (
 						<span key={i}>
-							{error}
+							<b className="text-red-600">{error[0]}: </b>
+							<span className="text-red-800">{error[1]}</span>
 							{i < errors.length - 1 && <br />}
 						</span>
 					))}
