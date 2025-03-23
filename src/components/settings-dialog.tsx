@@ -1,4 +1,4 @@
-import { Dialog, DialogPortal } from "@radix-ui/react-dialog"
+import { Dialog, DialogPortal } from "./ui/dialog"
 import { DialogContent, DialogHeader } from "./ui/dialog"
 import { Settings } from "lucide-react"
 import { Button } from "./ui/button";
@@ -76,7 +76,7 @@ export const SettingsDialog = () => {
                         
                         {/* Video resolution */}
                         <div className="flex gap-4">
-                            <div className="place-self-center text-nowrap">Video Quality</div>
+                            <div className="place-self-center text-nowrap font-bold">Video Quality</div>
                             {/* setting value here is kind of hacky, but it's the easiest thing I came up with
                                 anyway, fix it for me pls (idk react)
                             */}

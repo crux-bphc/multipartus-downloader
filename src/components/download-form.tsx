@@ -4,7 +4,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useAtomValue } from "jotai";
 import { BirdIcon, DownloadIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LectureSelector } from "./lecture-selector";
 import { SubjectSelector } from "./subject-selector";
 import { Button } from "./ui/button";
@@ -36,6 +36,7 @@ const DownloadButton = () => {
 	let [progressPercentage, setProgressPercentage] = useState(0);
 	let [errors, setErrors] = useState<string[]>([]);
 	let [complete, setComplete] = useState(false);
+	let [loadingDots, setLoadingDots] = useState("");
 
 	const onProgress = new Channel<DownloadProgressEvent>();
 	onProgress.onmessage = (message) => setProgressPercentage(message?.percent);
@@ -66,6 +67,19 @@ const DownloadButton = () => {
 		setComplete(true);
 	}
 
+	useEffect(() => {
+		if (complete) {
+			setLoadingDots("");
+			return;
+		}
+
+		const interval = setInterval(() => {
+			setLoadingDots((prev) => prev.length >= 3 ? "" : prev + ".")
+		}, 300);
+
+		return () => clearInterval(interval);
+	}, [complete])
+
 	return (
 		<Dialog open={open} onOpenChange={openable}>
 			<Button disabled={selectedVideos.length === 0} onClick={handleClick}>
@@ -73,7 +87,15 @@ const DownloadButton = () => {
 				<DownloadIcon />
 			</Button>
 			<DialogContent>
-				<DialogTitle>Downloading Your Lectures...</DialogTitle>
+				<DialogTitle>
+					{
+						complete ? 
+							(errors.length > 0 ? 
+								"Some Lecture Downloads Failed!" : "Lecture Downloads Complete!")
+							: "Downloading Your Lectures"
+					}
+					<span>{loadingDots}</span>
+				</DialogTitle>
 				<DialogDescription>{progressPercentage.toFixed(1)}% Complete</DialogDescription>
 				<Progress value={progressPercentage} />
 				{errors.length > 0 ? <b>Errors:<br/></b> : <></> }
