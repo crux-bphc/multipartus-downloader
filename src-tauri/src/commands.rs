@@ -1,6 +1,7 @@
 pub mod downloader;
 
 use downloader::{download_playlist, Resolution};
+use log::{error, info};
 use tokio_util::sync::CancellationToken;
 
 use std::{ops::DerefMut, path::PathBuf, sync::Arc};
@@ -9,11 +10,7 @@ use tauri_plugin_shell::{
     process::{CommandEvent, TerminatedPayload},
     ShellExt,
 };
-use tokio::{
-    io::AsyncWriteExt,
-    sync::Mutex,
-    task::JoinSet,
-};
+use tokio::{io::AsyncWriteExt, sync::Mutex, task::JoinSet};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Video {
@@ -55,7 +52,8 @@ async fn download_mp4(
     app: Arc<AppHandle>,
 ) -> Result<(), (i32, String)> {
     let video_file = &format!("{}-{}", remove_special(&video.topic), video.number);
-    println!("Attempting to download `{video_file}`...");
+
+    info!("download_mp4 invoked");
 
     let (itx, mut irx) = tokio::sync::watch::channel(0f32);
 
@@ -69,12 +67,14 @@ async fn download_mp4(
         }
     });
 
+    info!("Starting download of m3u8 playlist");
+
     let (side1, side2) =
         download_playlist(resolution, itx, &token, video.ttid as usize, video_file)
             .await
             .map_err(|e| (video.number, e.to_string()))?;
 
-    println!("Downloaded video playlist. Attempting to generate output mp4...");
+    info!("m3u8 playlist download complete");
 
     let mut location = PathBuf::new().join(format!("{folder}/{video_file}_{resolution}.mp4"));
     let mut i = 1;
@@ -87,6 +87,8 @@ async fn download_mp4(
         location.push(format!("{video_file}_{resolution} ({i}).mp4"));
         i += 1;
     }
+
+    info!("Creating output video file at {:#?}", location);
 
     let ffmpeg = app
         .shell()
@@ -129,10 +131,14 @@ async fn download_mp4(
         ]
     }
 
+    info!("Spawning ffmpeg");
+
     let ffmpeg = ffmpeg.args(args.as_slice());
 
     let mut ffmpeg_errors = String::new();
     let (mut rx, _child) = ffmpeg.spawn().map_err(|e| (video.number, e.to_string()))?;
+
+    info!("ffmpeg spawned");
 
     let _ = tx.try_send((nth, 50.0));
 
@@ -175,12 +181,13 @@ async fn download_mp4(
     }
 
     if !ffmpeg_errors.is_empty() {
-        println!("ffmpeg encounntered errors: \n{ffmpeg_errors}");
+        info!("ffmpeg failed with: \n{ffmpeg_errors}");
         return Err((video.number, ffmpeg_errors));
     }
 
-    println!(
-        "Generated output mp4 sucessfully at `{}`",
+    info!(
+        "Generated output mp4 for {} at `{}`",
+        video.ttid,
         location.to_str().unwrap_or("")
     );
 
@@ -190,6 +197,7 @@ async fn download_mp4(
 
 #[tauri::command]
 pub async fn clear_cache() -> Result<(), String> {
+    info!("clear_cache command invoked");
     let temp = std::env::temp_dir().join("multipartus-downloader");
     tokio::fs::remove_dir_all(temp.as_path().to_str().unwrap_or("./tmp"))
         .await
@@ -200,8 +208,10 @@ pub async fn clear_cache() -> Result<(), String> {
 // Should this run on another thread?
 #[tauri::command]
 pub fn get_cache_size() -> Result<String, String> {
+    info!("get_cache_size command invoked");
     let temp = std::env::temp_dir().join("multipartus-downloader");
     if !temp.exists() {
+        info!("Temp file for multipartus-downloader does not exist");
         return Ok("0K".to_string());
     }
     dir_size::get_size_in_abbr_human_bytes(temp.as_path()).map_err(|e| e.to_string())
@@ -209,6 +219,7 @@ pub fn get_cache_size() -> Result<String, String> {
 
 #[tauri::command]
 pub async fn save_settings(app: AppHandle, settings: Settings) -> Result<(), String> {
+    info!("save_settings command invoked");
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
 
     tokio::fs::create_dir_all(&app_data)
@@ -225,6 +236,8 @@ pub async fn save_settings(app: AppHandle, settings: Settings) -> Result<(), Str
         .await
         .map_err(|e| e.to_string())?;
 
+    info!("Saved new settings");
+
     Ok(())
 }
 
@@ -240,7 +253,10 @@ async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
             .await
             .map_err(|e| e.to_string())?
             .as_slice(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
+
+    info!("Settings loaded");
 
     Ok(out)
 }
@@ -255,6 +271,7 @@ async fn get_resolution(app: &AppHandle) -> Resolution {
 
 #[tauri::command]
 pub async fn load_settings(app: AppHandle) -> Result<Settings, String> {
+    info!("load_settings command invoked");
     get_settings(&app).await
 }
 
@@ -268,6 +285,8 @@ pub async fn download(
     on_progress: Channel<DownloadProgressEvent>,
     on_error: Channel<DownloadErrorEvent>,
 ) -> Result<(), String> {
+    info!("download command invoked");
+
     // Reset the cancellation token
     let cancellation_token = {
         let mut old_cancellation_token = cancellation_token.lock().await;
@@ -290,7 +309,7 @@ pub async fn download(
     let tx = Arc::new(tx);
 
     for (i, video) in videos.into_iter().enumerate() {
-        println!("Downloading: {}", video.topic);
+        info!("Queuing download of {}", video.ttid);
         let local_token = Arc::clone(&token);
         let app_ref = Arc::clone(&app);
         let folder_ref = Arc::clone(&folder);
@@ -300,7 +319,7 @@ pub async fn download(
         set.spawn(async move {
             tokio::select! {
                 _ = cancellation_token.cancelled() => {
-                    println!("Cancelled download of Lecture-{}", video.number);
+                    info!("Cancelled download of {}", video.ttid);
                     Err((video.number, "Cancelled".to_string()))
                 }
                 // does this need to be cancel safe?
@@ -325,6 +344,7 @@ pub async fn download(
 
     while let Some(res) = set.join_next().await {
         if let Err((number, err)) = res.map_err(|e| e.to_string())? {
+            error!("Failed to download Lecture-{number}: {err}");
             let _ = on_error.send(DownloadErrorEvent {
                 errors: vec![format!("Failed to download Lecture-{number}"), err],
             });
@@ -340,9 +360,9 @@ pub async fn download(
 pub async fn cancel_download(
     cancellation_token: State<'_, Mutex<CancellationToken>>,
 ) -> Result<(), ()> {
-    println!("Attempting to cancel all download tasks...");
+    info!("Cancelling all running download tasks");
     let token = cancellation_token.lock().await;
     token.cancel();
-    println!("Cancelled all download tasks sucessfully");
+    info!("Cancelled all download tasks");
     Ok(())
 }

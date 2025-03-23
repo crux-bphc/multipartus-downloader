@@ -2,6 +2,7 @@ use std::{fmt::Display, io::Write};
 
 use anyhow::{Context, Result};
 
+use log::info;
 use tauri_plugin_http::reqwest::{self, Client};
 use tokio::io::AsyncWriteExt;
 
@@ -63,9 +64,13 @@ pub async fn download_playlist(
 
     let temp = temp_location.as_path().to_str().unwrap_or("./tmp");
 
+    info!("Creating temp directory at {temp}");
+
     // Create this temp location if it doesn't exist
     std::fs::create_dir_all(temp)
         .context(format!("Failed to create temporary directory {}!", temp))?;
+
+    info!("Created temp directory at {temp}");
 
     // URLs to get data from
     let m3u8_url = format!("{BASE}/impartus/ttid/{ttid}/m3u8");
@@ -76,6 +81,8 @@ pub async fn download_playlist(
     let m3u8_side2_file_path = format!("{temp}/{filename}_side_2.m3u8");
     let key_file_path = format!("{temp}/{filename}.key.key");
 
+    info!("Fetching index playlist file for {ttid}");
+
     // I hope you love these beautiful waterfalls @TheComputerM :)
     // Get impartus .m3u8 file
     let m3u8_index_text = get(&m3u8_url, id_token)
@@ -84,6 +91,8 @@ pub async fn download_playlist(
         .text()
         .await
         .context("Failed to read contents of index playlist file!")?;
+
+    info!("Fetched index playlist file for {ttid}");
 
     // Get both resoultions
     let m3u8_1 = m3u8_index_text.lines().nth(2).context(format!(
@@ -108,6 +117,8 @@ pub async fn download_playlist(
         low_res_m3u8
     };
 
+    info!("Fetching main playlist file for {ttid}");
+
     // Get .m3u8 file that contains the video chunks
     let m3u8_in_text = get(selected_m3u8, id_token)
         .await
@@ -115,6 +126,8 @@ pub async fn download_playlist(
         .text()
         .await
         .context("Failed to read contents of playlist file!")?;
+
+    info!("Fetched main playlist file. Fetching key file for {ttid}");
 
     // get impartus key
     let key = get(&key_url, id_token)
@@ -124,6 +137,8 @@ pub async fn download_playlist(
         .await
         .context("Failed to read key!")?
         .to_vec();
+
+    info!("Fetched key file. Opening key file for {ttid}");
 
     // write it to .key file for ffmpeg to deal with it later
     let mut key_out = std::fs::File::create(&key_file_path)
@@ -136,6 +151,8 @@ pub async fn download_playlist(
     key_out.flush().context("Failed to flush .key file!")?;
 
     drop(key_out);
+
+    info!("Created key file for {ttid}");
 
     let mut m3u8_lines = m3u8_in_text.lines();
 
@@ -167,6 +184,7 @@ pub async fn download_playlist(
             .context("Failed to read input playlist!")?;
 
         if side == 0 && header.starts_with("#EXTINF") {
+            info!("Parsed headers of playlist. Switching to side 1");
             // Copy headers to side 2
             out_2 = out_1.clone();
             side = 1;
@@ -174,6 +192,7 @@ pub async fn download_playlist(
 
         // Other view of the lecture
         if header.starts_with("#EXT-X-DISCONTINUITY") {
+            info!("Finished parsing side 1, starting side 2");
             header = m3u8_lines.next().unwrap();
             side = 2;
             side2_file_path = Some(m3u8_side2_file_path.clone());
@@ -181,11 +200,13 @@ pub async fn download_playlist(
 
         // Stop if the playlist has ended
         if header.starts_with("#EXT-X-ENDLIST") {
+            info!("Finished parsing playlist");
             break;
         }
 
         // "Parse" first headers
         if side == 0 {
+            info!("Parsing header {header}");
             if header.starts_with("#EXT-X-KEY:METHOD=") {
                 // [#EXT-X-KEY:METHOD=AES-128],[URI="XXXX"]
                 let key_method = header
@@ -226,6 +247,7 @@ pub async fn download_playlist(
 
         // Re-downloads if io-error
         if let Ok(true) = tokio::fs::try_exists(&ts_store_location).await {
+            info!("The file at `{ts_store_path}` already exists. It likely has been downloaded previously. Skipping to next file");
             continue;
         }
 
@@ -245,7 +267,7 @@ pub async fn download_playlist(
     write_m3u8(&m3u8_side2_file_path, out_2).await?;
 
     // TODO: Remove
-    println!("Output .m3u8 created at: `{m3u8_side1_file_path}`, `{m3u8_side2_file_path}`");
+    info!("Output .m3u8 plalists created at `{m3u8_side1_file_path}` (side 1), `{m3u8_side2_file_path}` (side 2)");
 
     Ok((m3u8_side1_file_path, side2_file_path))
 }
