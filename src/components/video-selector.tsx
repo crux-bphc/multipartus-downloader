@@ -10,7 +10,6 @@ import { SquareArrowOutUpRight } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import Tooltip from "./ui/tooltip";
 
-
 const base = "https://lex.crux-bphc.com/multipartus/courses";
 
 const videoAtomsAtom = splitAtom(videosAtom, (item) => item.ttid);
@@ -30,7 +29,7 @@ const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
 			/>
 			<label
 				htmlFor={`ttid-${video.ttid}`}
-				className="flex justify-between py-3 flex-grow cursor-pointer"
+				className="flex justify-between items-center py-3 flex-grow cursor-pointer"
 			>
 				<div className="inline-flex gap-2">
 					<span className="bg-foreground text-primary px-1 rounded-sm text-bold">
@@ -38,20 +37,25 @@ const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
 					</span>
 					{video.topic}
 				</div>
-				<div className="flex gap-4">
+				<div className="inline-flex gap-4">
 					<span className="text-sm text-muted-foreground">
 						{formatter.format(new Date(video.startTime))}
 					</span>
+					<Tooltip content="Watch in Lex">
+						<button
+							type="button"
+							onClick={async () =>
+								await openUrl(
+									`${base}/${video.subjectID[0]}/${video.subjectID[1]}/watch/${video.ttid}`,
+								)
+							}
+							className="cursor-pointer"
+						>
+							<SquareArrowOutUpRight className="size-4 text-primary transition-all duration-200 hover:text-primary/80" />
+						</button>
+					</Tooltip>
 				</div>
 			</label>
-			<Tooltip content="Watch in Lex">
-				<span 
-					onClick={async () => await openUrl(`${base}/${video.subjectID[0]}/${video.subjectID[1]}/watch/${video.ttid}`)} 
-					className="text-muted-foreground place-self-center cursor-pointer "
-				>
-					<SquareArrowOutUpRight className="size-4 text-primary transition-all duration-200 hover:text-primary/80" />
-				</span>
-			</Tooltip>
 		</div>
 	);
 };
@@ -84,16 +88,12 @@ export const VideoSelector = () => {
 	}
 
 	return (
-		<>
-			<div className="flex flex-col gap-3">
-				{videoAtoms.map((video, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
-					<VideoItem key={i} video={video} />
-				))}
-			</div>
-			{/* Space for the settings icon */}
-			<div className="h-10"></div>
-		</>
+		<div className="flex flex-col gap-3 mb-12">
+			{videoAtoms.map((video, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+				<VideoItem key={i} video={video} />
+			))}
+		</div>
 	);
 };
 
