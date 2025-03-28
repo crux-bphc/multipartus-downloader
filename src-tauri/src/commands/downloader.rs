@@ -70,8 +70,8 @@ pub async fn download_playlist(
     ttid: usize,
     filename: &str,
 ) -> Result<(String, Option<String>)> {
-    // {temp}/multipartus-downloader/Lecture-<lecture-ttid>
-    let temp_location = get_temp().join(format!("Lecture-{ttid}"));
+    // {temp}/multipartus-downloader/Lecture_<lecture-ttid>
+    let temp_location = get_temp().join(format!("Lecture_{ttid}"));
 
     let temp = temp_location.as_path().to_str().unwrap_or("./tmp");
 
@@ -224,8 +224,9 @@ pub async fn download_playlist(
                     .split(",")
                     .next()
                     .context("Failed to parse key method of recieved playlist file!")?;
-
-                let ext_header = format!("{key_method},URI={key_file_path:?}\n");
+                
+                // TODO: Check if this has any problems
+                let ext_header = format!("{key_method},URI=\"{}\"\n", key_file_path.replace("\\", "\\\\"));
 
                 out_1 += &ext_header;
             } else {

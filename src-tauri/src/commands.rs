@@ -51,7 +51,7 @@ async fn download_mp4(
     folder: Arc<String>,
     app: Arc<AppHandle>,
 ) -> Result<(), (i32, String)> {
-    let video_file = &format!("{}-{}", remove_special(&video.topic), video.number);
+    let video_file = &format!("{}_{}", remove_special(&video.topic), video.number);
 
     info!("download_mp4 invoked");
 
