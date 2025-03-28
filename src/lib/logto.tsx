@@ -32,7 +32,12 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 	const navigate = useNavigate();
 
 	async function updateAuthState() {
-		setIsAuthenticated(await logtoClient.isAuthenticated());
+		if (await logtoClient.isAuthenticated()) {
+			await logtoClient.getAccessToken();
+			setIsAuthenticated(true);
+		} else {
+			setIsAuthenticated(false);
+		}
 	}
 
 	useEffect(() => {
