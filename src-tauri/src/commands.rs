@@ -164,6 +164,7 @@ async fn download_mp4(
                     output_count = max_count_output as usize;
                 }
             }
+
             CommandEvent::Error(str) => {
                 ffmpeg_errors.push_str(&str);
                 ffmpeg_errors += "\n";
@@ -186,7 +187,7 @@ async fn download_mp4(
     }
 
     info!(
-        "Generated output mp4 for {} at `{}`",
+        "ffmpeg completed generation of output mp4 for {} at `{}`",
         video.ttid,
         location.to_str().unwrap_or("")
     );
@@ -195,10 +196,16 @@ async fn download_mp4(
     Ok(())
 }
 
+fn get_temp() -> PathBuf {
+    std::env::temp_dir()
+        .join("multipartus-downloader")
+        .join("videos")
+}
+
 #[tauri::command]
 pub async fn clear_cache() -> Result<(), String> {
     info!("clear_cache command invoked");
-    let temp = std::env::temp_dir().join("multipartus-downloader");
+    let temp = get_temp();
     tokio::fs::remove_dir_all(temp.as_path().to_str().unwrap_or("./tmp"))
         .await
         .map_err(|e| e.to_string())?;
@@ -209,7 +216,7 @@ pub async fn clear_cache() -> Result<(), String> {
 #[tauri::command]
 pub fn get_cache_size() -> Result<String, String> {
     info!("get_cache_size command invoked");
-    let temp = std::env::temp_dir().join("multipartus-downloader");
+    let temp = get_temp();
     if !temp.exists() {
         info!("Temp file for multipartus-downloader does not exist");
         return Ok("0K".to_string());

@@ -46,7 +46,9 @@ fn clear_logs(dir: &PathBuf) -> std::io::Result<()> {
 
 fn main() {
     // outfile
-    let mut temp = std::env::temp_dir().join("multipartus-downloader-logs");
+    let mut temp = std::env::temp_dir()
+        .join("multipartus-downloader")
+        .join("logs");
 
     // Remove old log files to not waste space
     // Ignore errors created by removing files, since it's not necessary

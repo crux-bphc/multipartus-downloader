@@ -1,4 +1,4 @@
-use std::{fmt::Display, io::Write};
+use std::{collections::HashMap, fmt::Display, io::Write};
 
 use anyhow::{Context, Result};
 
@@ -7,6 +7,8 @@ use tauri_plugin_http::reqwest::{self, Client};
 use tokio::io::AsyncWriteExt;
 
 use std::sync::LazyLock;
+
+use crate::commands::get_temp;
 
 // A static instance of a client, so that just one client is used for all requests
 static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
@@ -44,10 +46,21 @@ impl Display for Resolution {
     }
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub struct Views {
+    left: bool,
+    right: bool,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub struct TrackInfo {
+    tracks: HashMap<String, Vec<String>>,
+    views: Views,
+}
+
 // TODOS: Not in order of importance:
-// 1. Select resoultion of download
+// 1. Use local and online base urls depending on user connectivity
 // 2. Improve error messages
-// 4. Remove / reduce debug logging
 
 /// Creates an m3u8 file referencing local unencrypted .ts files
 pub async fn download_playlist(
@@ -58,9 +71,7 @@ pub async fn download_playlist(
     filename: &str,
 ) -> Result<(String, Option<String>)> {
     // {temp}/multipartus-downloader/Lecture-<lecture-ttid>
-    let temp_location = std::env::temp_dir()
-        .join("multipartus-downloader")
-        .join(format!("Lecture-{ttid}"));
+    let temp_location = get_temp().join(format!("Lecture-{ttid}"));
 
     let temp = temp_location.as_path().to_str().unwrap_or("./tmp");
 
@@ -73,7 +84,7 @@ pub async fn download_playlist(
     info!("Created temp directory at {temp}");
 
     // URLs to get data from
-    let m3u8_url = format!("{BASE}/impartus/ttid/{ttid}/m3u8");
+    let m3u8_info = format!("{BASE}/impartus/ttid/{ttid}/m3u8/info");
     let key_url = format!("{BASE}/impartus/ttid/{ttid}/key");
 
     // Temp locations to store the files used for generating outputs
@@ -85,36 +96,36 @@ pub async fn download_playlist(
 
     // I hope you love these beautiful waterfalls @TheComputerM :)
     // Get impartus .m3u8 file
-    let m3u8_index_text = get(&m3u8_url, id_token)
+    let m3u8_index_bytes = get(&m3u8_info, id_token)
         .await
         .context("Failed to fetch index playlist file!")?
-        .text()
+        .bytes()
         .await
-        .context("Failed to read contents of index playlist file!")?;
+        .context("Failed to read contents of playlist info file!")?;
 
-    info!("Fetched index playlist file for {ttid}");
+    info!("Fetched playlist json, now parsing it for {ttid}");
 
-    // Get both resoultions
-    let m3u8_1 = m3u8_index_text.lines().nth(2).context(format!(
-        "Failed to get playlist file data! {m3u8_index_text}"
-    ))?;
+    let m3u8_tracks =
+        serde_json::from_slice::<TrackInfo>(&m3u8_index_bytes).context("Failed to parse track json!")?;
 
-    let m3u8_2 = m3u8_index_text.lines().nth(4).context(format!(
-        "Failed to get playlist file data! {m3u8_index_text}"
-    ))?;
+    info!("Finished parsing playlist json file for {ttid}");
 
-    // Find the correct resolution
-    let (high_res_m3u8, low_res_m3u8) = if m3u8_1.contains("F1280x720") {
-        (m3u8_1, m3u8_2)
-    } else {
-        (m3u8_2, m3u8_1)
-    };
-
+    // TODO: Use second url in conjuction with local / online bases depending on connectivity
     // Select the correct resolution
     let selected_m3u8 = if let Resolution::HighRes = resolution {
-        high_res_m3u8
+        m3u8_tracks
+            .tracks
+            .get("1280x720")
+            .context("Failed to get 1280x720p video playlist")?
+            .first()
+            .context("Failed to get first link in 1280x720p video playlist")?
     } else {
-        low_res_m3u8
+        m3u8_tracks
+            .tracks
+            .get("854x480")
+            .context("Failed to get 854x480 video playlist")?
+            .first()
+            .context("Failed to get first link in 854x480 video playlist")?
     };
 
     info!("Fetching main playlist file for {ttid}");
@@ -263,11 +274,16 @@ pub async fn download_playlist(
     out_1 += "#EXT-X-ENDLIST";
     out_2 += "#EXT-X-ENDLIST";
 
-    write_m3u8(&m3u8_side1_file_path, out_1).await?;
-    write_m3u8(&m3u8_side2_file_path, out_2).await?;
+    // Could also check against the existance of the side 2 file path
+    if m3u8_tracks.views.left {
+        info!("Output .m3u8 playlist created at `{m3u8_side1_file_path}` (side 1) for {ttid}");
+        write_m3u8(&m3u8_side1_file_path, out_1).await?;
+    }
 
-    // TODO: Remove
-    info!("Output .m3u8 plalists created at `{m3u8_side1_file_path}` (side 1), `{m3u8_side2_file_path}` (side 2)");
+    if m3u8_tracks.views.right {
+        info!("Output .m3u8 playlist created at `{m3u8_side1_file_path}` (side 2) for {ttid}");
+        write_m3u8(&m3u8_side2_file_path, out_2).await?;
+    }
 
     Ok((m3u8_side1_file_path, side2_file_path))
 }
