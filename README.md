@@ -1,7 +1,11 @@
-# Tauri + Solid + Typescript
+# Multipartus Downloader
 
-This template should help get you started developing with Tauri, Solid and Typescript in Vite.
+A Tauri app created by CRUx to download multipartus/impartus video lectures (through [Lex](https://lex.crux-bphc.com/)).
 
-## Recommended IDE Setup
+## Download
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+Downloads are available on the [releases page](https://github.com/crux-bphc/multipartus-downloader/releases).
+
+## Reporting a bug/issue
+
+Open an issue on this GitHub repo or contact your local CRUx member.
