@@ -10,7 +10,7 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "https://logto.local.crux-bphc.com"
+          "url": "https://logto.local.crux-bphc.com/*"
         },
         {
           "url": "https://lex.crux-bphc.com/api/impartus/*"

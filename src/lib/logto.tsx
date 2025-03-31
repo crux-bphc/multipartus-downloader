@@ -1,4 +1,5 @@
-import LogtoClient, { Prompt } from "@logto/browser";
+import LogtoClient, { createRequester, Prompt } from "@logto/browser";
+import { fetch } from "@tauri-apps/plugin-http";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
 	type ReactNode,
@@ -16,6 +17,7 @@ export const logtoClient = new LogtoClient({
 	prompt: [Prompt.Consent],
 });
 logtoClient.adapter.navigate = (url) => openUrl(url);
+logtoClient.adapter.requester = createRequester(fetch);
 
 const LogtoContext = createContext<{
 	isAuthenticated: boolean;
