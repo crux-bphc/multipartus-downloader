@@ -44,16 +44,16 @@ async function download(targetTriple: keyof typeof binaries) {
 
 switch (process.platform) {
 	case "linux":
-		download("x86_64-unknown-linux-gnu");
+		await download("x86_64-unknown-linux-gnu");
 		break;
 	case "win32":
-		download("x86_64-pc-windows-msvc.exe");
+		await download("x86_64-pc-windows-msvc.exe");
 		break;
 	case "darwin":
-		if ((await $`uname -m`).text().trim().includes("arm64")) {
-			download("aarch64-apple-darwin");
+		if ((await $`uname -m`).text().includes("arm64")) {
+			await download("aarch64-apple-darwin");
 		} else {
-			download("x86_64-apple-darwin");
+			await download("x86_64-apple-darwin");
 		}
 		break;
 }
