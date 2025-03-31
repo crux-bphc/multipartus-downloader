@@ -4,7 +4,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useAtomValue } from "jotai";
 import { BirdIcon, DownloadIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LectureSelector } from "./lecture-selector";
 import { SubjectSelector } from "./subject-selector";
 import { Button } from "./ui/button";
@@ -12,6 +12,7 @@ import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
+	DialogFooter,
 	DialogTitle,
 } from "./ui/dialog";
 import { Progress } from "./ui/progress";
@@ -21,9 +22,8 @@ type DownloadProgressEvent = {
 	percent: number;
 };
 
-
 type DownloadErrorEvent = {
-	errors: string[];
+	errors: [string, string];
 };
 
 const DownloadButton = () => {
@@ -33,15 +33,23 @@ const DownloadButton = () => {
 		[videos],
 	);
 	const [open, setOpen] = useState(false);
-	let [progressPercentage, setProgressPercentage] = useState(0);
-	let [errors, setErrors] = useState<string[]>([]);
-	let [complete, setComplete] = useState(false);
+	const [progressPercentage, setProgressPercentage] = useState(0);
+	const [errors, setErrors] = useState<[string, string][]>([]);
+	const [complete, setComplete] = useState(false);
+	const [loadingDots, setLoadingDots] = useState("");
 
 	const onProgress = new Channel<DownloadProgressEvent>();
 	onProgress.onmessage = (message) => setProgressPercentage(message?.percent);
 
 	const onError = new Channel<DownloadErrorEvent>();
-	onError.onmessage = (message) => setErrors(prevErrors => [...prevErrors, ...message.errors]);
+	onError.onmessage = (message) =>
+		setErrors((prevErrors) => [...prevErrors, message.errors]);
+
+	function openable(openState: boolean) {
+		if (complete) {
+			setOpen(openState);
+		}
+	}
 
 	async function handleClick() {
 		setProgressPercentage(0);
@@ -58,35 +66,77 @@ const DownloadButton = () => {
 		setOpen(true);
 		// Use base folder instead of adding temp, since the temp file is chosen to be the default temp
 		// file of the operating system.
-		await invoke("download", { token, folder: baseFolder, videos: selectedVideos, onProgress, onError });
+		await invoke("download", {
+			token,
+			folder: baseFolder,
+			videos: selectedVideos,
+			onProgress,
+			onError,
+		});
 		setComplete(true);
 	}
 
+	useEffect(() => {
+		if (complete) {
+			setLoadingDots("");
+			return;
+		}
+
+		const interval = setInterval(() => {
+			setLoadingDots((prev) => (prev.length >= 3 ? "" : `${prev}.`));
+		}, 300);
+
+		return () => clearInterval(interval);
+	}, [complete]);
+
 	return (
-		<Dialog open={open} onOpenChange={setOpen}>
+		<Dialog open={open} onOpenChange={openable}>
 			<Button disabled={selectedVideos.length === 0} onClick={handleClick}>
 				({selectedVideos.length}) Download
 				<DownloadIcon />
 			</Button>
 			<DialogContent>
-				<DialogTitle>Downloading Your Lectures...</DialogTitle>
-				<DialogDescription>{progressPercentage}% Complete</DialogDescription>
+				<DialogTitle>
+					{complete
+						? errors.length > 0
+							? "Some Lecture Downloads Failed!"
+							: "Lecture Downloads Complete!"
+						: "Downloading Your Lectures"}
+					<span>{loadingDots}</span>
+				</DialogTitle>
+				<DialogDescription>
+					{progressPercentage.toFixed(1)}% Complete
+				</DialogDescription>
 				<Progress value={progressPercentage} />
-				{errors.length > 0 ? <b>Errors:<br/></b> : <></> }
-				
+				{errors.length > 0 && (
+					<b>
+						Errors:
+						<br />
+					</b>
+				)}
+
 				{/* idk what to put for max height to make it look decent */}
-				<div className="whitespace-pre-wrap max-h-28 overflow-auto text-red-600">
+				<div className="whitespace-pre-wrap max-h-28 overflow-auto">
 					{errors.map((error, i) => (
 						<span key={i}>
-							{error}
+							<b className="text-red-600">{error[0]}: </b>
+							<span className="text-red-800">{error[1]}</span>
 							{i < errors.length - 1 && <br />}
 						</span>
 					))}
 				</div>
-				<span style={ { gridTemplateColumns: "1fr 1fr" } } className="grid gap-4">
-					<Button onClick={() => setOpen(false)} disabled={!complete}>Ok</Button>
-					<Button onClick={() => invoke('cancel_download')} disabled={complete} variant={"destructive"}>Cancel</Button>
-				</span>
+				<DialogFooter>
+					<Button onClick={() => setOpen(false)} disabled={!complete}>
+						Done
+					</Button>
+					<Button
+						onClick={() => invoke("cancel_download")}
+						disabled={complete}
+						variant="destructive"
+					>
+						Cancel
+					</Button>
+				</DialogFooter>
 			</DialogContent>
 		</Dialog>
 	);

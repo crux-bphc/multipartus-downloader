@@ -1,14 +1,18 @@
-use std::io::Write;
+use std::{collections::HashMap, fmt::Display, io::Write};
 
 use anyhow::{Context, Result};
 
+use log::info;
 use tauri_plugin_http::reqwest::{self, Client};
 use tokio::io::AsyncWriteExt;
 
 use std::sync::LazyLock;
 
+use crate::commands::get_temp;
+
 // A static instance of a client, so that just one client is used for all requests
 static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
+const BASE: &str = dotenvy_macro::dotenv!("BASE");
 
 /// References static client to perform a GET request with the token auth header
 async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
@@ -20,63 +24,121 @@ async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
         .context(format!("Failed to GET data from url \"{url}\"!"))
 }
 
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
+pub enum Resolution {
+    /// 480p
+    LowRes,
+    /// 720p
+    HighRes,
+}
+
+impl Display for Resolution {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            if let Self::HighRes = self {
+                "high_res"
+            } else {
+                "low_res"
+            }
+        )
+    }
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub struct Views {
+    left: bool,
+    right: bool,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub struct TrackInfo {
+    tracks: HashMap<String, Vec<String>>,
+    views: Views,
+}
+
 // TODOS: Not in order of importance:
-// 1. Select resoultion of download
+// 1. Use local and online base urls depending on user connectivity
 // 2. Improve error messages
-// 3. Calculate more fine-grained completion percentage
-// 4. Remove / reduce debug logging
 
 /// Creates an m3u8 file referencing local unencrypted .ts files
 pub async fn download_playlist(
+    resolution: Resolution,
+    tx: tokio::sync::watch::Sender<f32>,
     id_token: &str,
     ttid: usize,
     filename: &str,
 ) -> Result<(String, Option<String>)> {
-    // Get env variables
-
-    // {temp}/multipartus-downloader/Lecture-<lecture-ttid>
-    let temp_location = std::env::temp_dir()
-        .join("multipartus-downloader")
-        .join(format!("Lecture-{ttid}"));
+    // {temp}/multipartus-downloader/Lecture_<lecture-ttid>
+    let temp_location = get_temp().join(format!("Lecture_{ttid}"));
 
     let temp = temp_location.as_path().to_str().unwrap_or("./tmp");
+
+    info!("Creating temp directory at {temp}");
 
     // Create this temp location if it doesn't exist
     std::fs::create_dir_all(temp)
         .context(format!("Failed to create temporary directory {}!", temp))?;
 
-    let base = std::env::var("BASE").context("Failed to fetch environment variable `BASE`!")?;
+    info!("Created temp directory at {temp}");
 
     // URLs to get data from
-    let m3u8_url = format!("{base}/impartus/ttid/{ttid}/m3u8");
-    let key_url = format!("{base}/impartus/ttid/{ttid}/key");
+    let m3u8_info = format!("{BASE}/impartus/ttid/{ttid}/m3u8/info");
+    let key_url = format!("{BASE}/impartus/ttid/{ttid}/key");
 
     // Temp locations to store the files used for generating outputs
     let m3u8_side1_file_path = format!("{temp}/{filename}_side_1.m3u8");
     let m3u8_side2_file_path = format!("{temp}/{filename}_side_2.m3u8");
     let key_file_path = format!("{temp}/{filename}.key.key");
 
+    info!("Fetching index playlist file for {ttid}");
+
     // I hope you love these beautiful waterfalls @TheComputerM :)
     // Get impartus .m3u8 file
-    let m3u8_index_text = get(&m3u8_url, id_token)
+    let m3u8_index_bytes = get(&m3u8_info, id_token)
         .await
         .context("Failed to fetch index playlist file!")?
-        .text()
+        .bytes()
         .await
-        .context("Failed to read contents of index playlist file!")?;
+        .context("Failed to read contents of playlist info file!")?;
 
-    // TODO: Pick resolution
-    let high_res_m3u8 = m3u8_index_text.lines().nth(2).context(format!(
-        "Failed to get playlist file data! {m3u8_index_text}"
-    ))?;
+    info!("Fetched playlist json, now parsing it for {ttid}");
+
+    let m3u8_tracks =
+        serde_json::from_slice::<TrackInfo>(&m3u8_index_bytes).context("Failed to parse track json!")?;
+
+    info!("Finished parsing playlist json file for {ttid}");
+
+    // TODO: Use second url in conjuction with local / online bases depending on connectivity
+    // Select the correct resolution
+    let selected_m3u8 = if let Resolution::HighRes = resolution {
+        m3u8_tracks
+            .tracks
+            .get("1280x720")
+            .context("Failed to get 1280x720p video playlist")?
+            .first()
+            .context("Failed to get first link in 1280x720p video playlist")?
+    } else {
+        m3u8_tracks
+            .tracks
+            .get("854x480")
+            .context("Failed to get 854x480 video playlist")?
+            .first()
+            .context("Failed to get first link in 854x480 video playlist")?
+    };
+
+    info!("Fetching main playlist file for {ttid}");
 
     // Get .m3u8 file that contains the video chunks
-    let m3u8_in_text = get(high_res_m3u8, id_token)
+    let m3u8_in_text = get(selected_m3u8, id_token)
         .await
         .context("Failed to fetch playlist file!")?
         .text()
         .await
         .context("Failed to read contents of playlist file!")?;
+
+    info!("Fetched main playlist file. Fetching key file for {ttid}");
 
     // get impartus key
     let key = get(&key_url, id_token)
@@ -86,6 +148,8 @@ pub async fn download_playlist(
         .await
         .context("Failed to read key!")?
         .to_vec();
+
+    info!("Fetched key file. Opening key file for {ttid}");
 
     // write it to .key file for ffmpeg to deal with it later
     let mut key_out = std::fs::File::create(&key_file_path)
@@ -99,6 +163,8 @@ pub async fn download_playlist(
 
     drop(key_out);
 
+    info!("Created key file for {ttid}");
+
     let mut m3u8_lines = m3u8_in_text.lines();
 
     let mut i = 0u32;
@@ -109,10 +175,8 @@ pub async fn download_playlist(
     // Side = 0 -> Parse first headers, side = 1 / 2: Different views
     let mut side = 0u8;
 
-    // TODO: Remove if unused in the future.
-    // For later
     let number_of_ts_files = (m3u8_lines.clone().count() - 8) / 2;
-    let mut _perc_downloaded = 0f32;
+    let mut perc_downloaded;
 
     // Get the folder to store the .ts files
     let ts_store_location = std::path::Path::new(&temp).join("ts_store");
@@ -131,6 +195,7 @@ pub async fn download_playlist(
             .context("Failed to read input playlist!")?;
 
         if side == 0 && header.starts_with("#EXTINF") {
+            info!("Parsed headers of playlist. Switching to side 1");
             // Copy headers to side 2
             out_2 = out_1.clone();
             side = 1;
@@ -138,6 +203,7 @@ pub async fn download_playlist(
 
         // Other view of the lecture
         if header.starts_with("#EXT-X-DISCONTINUITY") {
+            info!("Finished parsing side 1, starting side 2");
             header = m3u8_lines.next().unwrap();
             side = 2;
             side2_file_path = Some(m3u8_side2_file_path.clone());
@@ -145,19 +211,22 @@ pub async fn download_playlist(
 
         // Stop if the playlist has ended
         if header.starts_with("#EXT-X-ENDLIST") {
+            info!("Finished parsing playlist");
             break;
         }
 
         // "Parse" first headers
         if side == 0 {
+            info!("Parsing header {header}");
             if header.starts_with("#EXT-X-KEY:METHOD=") {
                 // [#EXT-X-KEY:METHOD=AES-128],[URI="XXXX"]
                 let key_method = header
                     .split(",")
                     .next()
                     .context("Failed to parse key method of recieved playlist file!")?;
-
-                let ext_header = format!("{key_method},URI={key_file_path:?}\n");
+                
+                // TODO: Check if this has any problems
+                let ext_header = format!("{key_method},URI=\"{}\"\n", key_file_path.replace("\\", "\\\\"));
 
                 out_1 += &ext_header;
             } else {
@@ -171,8 +240,9 @@ pub async fn download_playlist(
         let ts_url = m3u8_lines.next().unwrap();
 
         // Get the file-name of the .ts file
-        let ts_store_location =
-            ts_store_location.join(format!("tmp_ttid-{ttid}_{filename}_side-{side}_{i}.ts"));
+        let ts_store_location = ts_store_location.join(format!(
+            "tmp_ttid_{ttid}_{filename}_side_{side}_{i}_{resolution}.ts"
+        ));
 
         // Failable?
         let ts_store_path = ts_store_location.to_str().unwrap();
@@ -187,27 +257,34 @@ pub async fn download_playlist(
 
         i += 1;
 
-        // TODO: what happens when io error?
+        // Re-downloads if io-error
         if let Ok(true) = tokio::fs::try_exists(&ts_store_location).await {
-            // TODO: Remove
-            // println!("Already downloaded `{ts_store_path}`. Skipping to next...");
+            info!("The file at `{ts_store_path}` already exists. It likely has been downloaded previously. Skipping to next file");
             continue;
         }
 
         download_ts_file(ts_store_path, id_token, ts_url).await?;
 
-        _perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
+        perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
+
+        // There's no need to have an error occur if the progress cannot be reported
+        tx.send(perc_downloaded).unwrap_or(());
     }
 
     // End playlist
     out_1 += "#EXT-X-ENDLIST";
     out_2 += "#EXT-X-ENDLIST";
 
-    write_m3u8(&m3u8_side1_file_path, out_1).await?;
-    write_m3u8(&m3u8_side2_file_path, out_2).await?;
+    // Could also check against the existance of the side 2 file path
+    if m3u8_tracks.views.left {
+        info!("Output .m3u8 playlist created at `{m3u8_side1_file_path}` (side 1) for {ttid}");
+        write_m3u8(&m3u8_side1_file_path, out_1).await?;
+    }
 
-    // TODO: Remove
-    println!("Output .m3u8 created at: `{m3u8_side1_file_path}`, `{m3u8_side2_file_path}`");
+    if m3u8_tracks.views.right {
+        info!("Output .m3u8 playlist created at `{m3u8_side1_file_path}` (side 2) for {ttid}");
+        write_m3u8(&m3u8_side2_file_path, out_2).await?;
+    }
 
     Ok((m3u8_side1_file_path, side2_file_path))
 }

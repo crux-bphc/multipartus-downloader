@@ -1,11 +1,16 @@
-import { lectureAtom, videosAtom } from "@/lib/atoms";
+import { lectureAtom, subjectAtom, videosAtom } from "@/lib/atoms";
 import { fetchLex } from "@/lib/lex";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { type PrimitiveAtom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
+import { SquareArrowOutUpRight } from "lucide-react";
 import { useEffect } from "react";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Skeleton } from "./ui/skeleton";
+import Tooltip from "./ui/tooltip";
+
+const base = "https://lex.crux-bphc.com/multipartus/courses";
 
 const videoAtomsAtom = splitAtom(videosAtom, (item) => item.ttid);
 
@@ -24,7 +29,7 @@ const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
 			/>
 			<label
 				htmlFor={`ttid-${video.ttid}`}
-				className="flex justify-between py-3 flex-grow cursor-pointer"
+				className="flex justify-between items-center py-3 flex-grow cursor-pointer"
 			>
 				<div className="inline-flex gap-2">
 					<span className="bg-foreground text-primary px-1 rounded-sm text-bold">
@@ -32,9 +37,24 @@ const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
 					</span>
 					{video.topic}
 				</div>
-				<span className="text-sm text-muted-foreground">
-					{formatter.format(new Date(video.startTime))}
-				</span>
+				<div className="inline-flex gap-4">
+					<span className="text-sm text-muted-foreground">
+						{formatter.format(new Date(video.startTime))}
+					</span>
+					<Tooltip content="Watch in Lex">
+						<button
+							type="button"
+							onClick={async () =>
+								await openUrl(
+									`${base}/${video.subjectID[0]}/${video.subjectID[1]}/watch/${video.ttid}`,
+								)
+							}
+							className="cursor-pointer"
+						>
+							<SquareArrowOutUpRight className="size-4 text-primary transition-all duration-200 hover:text-primary/80" />
+						</button>
+					</Tooltip>
+				</div>
 			</label>
 		</div>
 	);
@@ -43,10 +63,11 @@ const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
 export const VideoSelector = () => {
 	const setVideo = useSetAtom(videosAtom);
 	const lecture = useAtomValue(lectureAtom);
+	const subject = useAtomValue(subjectAtom);
 	const videoAtoms = useAtomValue(videoAtomsAtom);
 
 	useEffect(() => {
-		if (lecture) {
+		if (lecture && subject) {
 			setVideo([]);
 			// fetch new videos when lecture changes
 			fetchLex<Multipartus.Video[]>(`lecture/${lecture.join("/")}`)
@@ -55,6 +76,7 @@ export const VideoSelector = () => {
 						...video,
 						selected: true,
 						number: videos.length - i,
+						subjectID: subject,
 					})),
 				)
 				.then(setVideo);
@@ -66,9 +88,8 @@ export const VideoSelector = () => {
 	}
 
 	return (
-		<div className="flex flex-col gap-3">
+		<div className="flex flex-col gap-3 mb-12">
 			{videoAtoms.map((video, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
 				<VideoItem key={i} video={video} />
 			))}
 		</div>

@@ -14,11 +14,14 @@
       {
         "title": "Multipartus Downloader",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "minWidth": 800,
+        "minHeight": 400
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": []
     }
   },
   "bundle": {
