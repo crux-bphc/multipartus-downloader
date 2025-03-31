@@ -1,13 +1,13 @@
 import { lectureAtom, subjectAtom, videosAtom } from "@/lib/atoms";
 import { fetchLex } from "@/lib/lex";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { type PrimitiveAtom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
+import { SquareArrowOutUpRight } from "lucide-react";
 import { useEffect } from "react";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Skeleton } from "./ui/skeleton";
-import { SquareArrowOutUpRight } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import Tooltip from "./ui/tooltip";
 
 const base = "https://lex.crux-bphc.com/multipartus/courses";
@@ -90,7 +90,6 @@ export const VideoSelector = () => {
 	return (
 		<div className="flex flex-col gap-3 mb-12">
 			{videoAtoms.map((video, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
 				<VideoItem key={i} video={video} />
 			))}
 		</div>
