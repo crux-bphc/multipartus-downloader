@@ -10,6 +10,10 @@ const binaries = {
 		"https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-linux-x64",
 	"x86_64-pc-windows-msvc.exe":
 		"https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-win32-x64",
+	"aarch64-apple-darwin":
+		"https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-darwin-arm64",
+	"x86_64-apple-darwin":
+		"https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-darwin-x64",
 };
 
 /**
@@ -44,5 +48,12 @@ switch (process.platform) {
 		break;
 	case "win32":
 		download("x86_64-pc-windows-msvc.exe");
+		break;
+	case "darwin":
+		if ((await $`uname -m`).text().trim().includes("arm64")) {
+			download("aarch64-apple-darwin");
+		} else {
+			download("x86_64-apple-darwin");
+		}
 		break;
 }
