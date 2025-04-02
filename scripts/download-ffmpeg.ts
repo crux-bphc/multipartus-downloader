@@ -50,7 +50,7 @@ switch (process.platform) {
 		await download("x86_64-pc-windows-msvc.exe");
 		break;
 	case "darwin":
-		if ((await $`uname -m`).text().includes("arm64")) {
+		if (process.arch === "arm64") {
 			await download("aarch64-apple-darwin");
 		} else {
 			await download("x86_64-apple-darwin");
