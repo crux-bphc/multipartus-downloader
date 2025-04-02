@@ -46,7 +46,7 @@ const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
 							type="button"
 							onClick={async () =>
 								await openUrl(
-									`${base}/${video.subjectID[0]}/${video.subjectID[1]}/watch/${video.ttid}`,
+									`${base}/${video.subjectID[0].replaceAll("/", ",")}/${video.subjectID[1]}/watch/${video.ttid}`,
 								)
 							}
 							className="cursor-pointer"
