@@ -25,18 +25,6 @@
     },
     "core:default",
     "opener:default",
-    {
-      "identifier": "shell:allow-execute",
-      "allow": [
-        {
-          "args": [
-            "-version"
-          ],
-          "name": "binaries/ffmpeg",
-          "sidecar": true
-        }
-      ]
-    },
     "shell:allow-open",
     "oauth:allow-start",
     "oauth:allow-cancel",
