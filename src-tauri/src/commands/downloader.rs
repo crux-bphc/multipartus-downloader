@@ -105,8 +105,8 @@ pub async fn download_playlist(
 
     info!("Fetched playlist json, now parsing it for {ttid}");
 
-    let m3u8_tracks =
-        serde_json::from_slice::<TrackInfo>(&m3u8_index_bytes).context("Failed to parse track json!")?;
+    let m3u8_tracks = serde_json::from_slice::<TrackInfo>(&m3u8_index_bytes)
+        .context("Failed to parse track json!")?;
 
     info!("Finished parsing playlist json file for {ttid}");
 
@@ -224,9 +224,12 @@ pub async fn download_playlist(
                     .split(",")
                     .next()
                     .context("Failed to parse key method of recieved playlist file!")?;
-                
+
                 // TODO: Check if this has any problems
-                let ext_header = format!("{key_method},URI=\"{}\"\n", key_file_path.replace("\\", "\\\\"));
+                let ext_header = format!(
+                    "{key_method},URI=\"{}\"\n",
+                    key_file_path.replace("\\", "\\\\")
+                );
 
                 out_1 += &ext_header;
             } else {

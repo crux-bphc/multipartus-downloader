@@ -4,7 +4,11 @@ use downloader::{download_playlist, Resolution};
 use log::{error, info};
 use tokio_util::sync::CancellationToken;
 
-use std::{ops::DerefMut, path::PathBuf, sync::Arc};
+use std::{
+    ops::DerefMut,
+    path::PathBuf,
+    sync::Arc,
+};
 use tauri::{ipc::Channel, AppHandle, Manager, State};
 use tauri_plugin_shell::{
     process::{CommandEvent, TerminatedPayload},
@@ -13,9 +17,11 @@ use tauri_plugin_shell::{
 use tokio::{io::AsyncWriteExt, sync::Mutex, task::JoinSet};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct Video {
     pub ttid: i32,
     pub topic: String,
+    pub subject_name: String,
     pub number: i32,
 }
 
@@ -50,8 +56,8 @@ async fn download_mp4(
     token: Arc<String>,
     folder: Arc<String>,
     app: Arc<AppHandle>,
-) -> Result<(), (i32, String)> {
-    let video_file = &format!("{}_{}", remove_special(&video.topic), video.number);
+) -> Result<i32, (i32, String)> {
+    let video_file = &format!("{}_{}", video.number, remove_special(&video.topic));
 
     info!("download_mp4 invoked");
 
@@ -67,6 +73,35 @@ async fn download_mp4(
         }
     });
 
+    info!("Checking download location");
+
+    let mut location = PathBuf::new().join(folder.to_string());
+
+    // Download in the given folder if the filename of the folder is the subject name
+    if location
+        .file_name()
+        .map(|v| v.to_str().unwrap_or(""))
+        .unwrap_or("")
+        != &video.subject_name
+    {
+        info!("Given folder is not in folder with subject name {}. Adding subject folder", video.subject_name);
+        location.push(&video.subject_name);
+    }
+
+    // Create directory to store current subject lectures if not already created
+    tokio::fs::create_dir_all(&location)
+        .await
+        .map_err(|e| (video.number, e.to_string()))?;
+
+    location.push(format!("{video_file}_{resolution}.mp4"));
+
+    // Skip this download if it exists
+    if location.exists() {
+        // Say it's at 100%
+        let _ = tx.send((nth, 100.0)).await;
+        return Ok(video.ttid);
+    }
+
     info!("Starting download of m3u8 playlist");
 
     let (side1, side2) =
@@ -75,18 +110,6 @@ async fn download_mp4(
             .map_err(|e| (video.number, e.to_string()))?;
 
     info!("m3u8 playlist download complete");
-
-    let mut location = PathBuf::new().join(format!("{folder}/{video_file}_{resolution}.mp4"));
-    let mut i = 1;
-
-    // Creates a new file instead of attempting to replace it
-    // since ffmpeg puts up a y/n prompt and waits till input,
-    // This is an easier solution to that problem
-    while location.exists() {
-        location.pop();
-        location.push(format!("{video_file}_{resolution} ({i}).mp4"));
-        i += 1;
-    }
 
     info!("Creating output video file at {:#?}", location);
 
@@ -193,7 +216,7 @@ async fn download_mp4(
     );
 
     let _ = tx.try_send((nth, 100.0));
-    Ok(())
+    Ok(video.ttid)
 }
 
 fn get_temp() -> PathBuf {
@@ -350,11 +373,22 @@ pub async fn download(
     });
 
     while let Some(res) = set.join_next().await {
-        if let Err((number, err)) = res.map_err(|e| e.to_string())? {
-            error!("Failed to download Lecture-{number}: {err}");
-            let _ = on_error.send(DownloadErrorEvent {
-                errors: vec![format!("Failed to download Lecture-{number}"), err],
-            });
+        match res.map_err(|e| e.to_string())? {
+            Err((number, err)) => {
+                error!("Failed to download Lecture-{number}: {err}");
+                let _ = on_error.send(DownloadErrorEvent {
+                    errors: vec![format!("Failed to download Lecture-{number}"), err],
+                });
+            }
+
+            Ok(ttid) => {
+                info!("Deleting lecture {} from cache", ttid);
+                // This lecture download has completed, remove it from the cache
+                let remove_loc = get_temp().join(format!("Lecture_{}", ttid));
+                if let Err(error) = tokio::fs::remove_dir_all(remove_loc).await {
+                    error!("Failed to remove download folder of lecture {ttid}: {error}");
+                };
+            }
         };
     }
 

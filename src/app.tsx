@@ -12,9 +12,6 @@ if (!node) {
 	throw new Error("No root element found");
 }
 
-// Should this be here? Does the app need maintain the facade of *not* being a react website?
-node.addEventListener('contextmenu', (e: Event) => e.preventDefault())
-
 createRoot(node).render(
 	<BrowserRouter>
 		<Routes>
