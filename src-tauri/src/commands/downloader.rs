@@ -95,12 +95,7 @@ pub async fn download_playlist(
 
         let mut set = JoinSet::new();
         for base in bases {
-            set.spawn(async move {
-                if check_available(base).await {
-                    return (true, base);
-                }
-                (false, base)
-            });
+            set.spawn(async move { (check_available(base).await, base) });
         }
 
         // Run all the ping-functions at the same time, and wait for the first successful response
@@ -116,6 +111,8 @@ pub async fn download_playlist(
             }
         }
 
+        // Is 5s a good enough amount of time to decide if a server is unavailable?
+        // Or should it try connecting to the default server again - waiting as long as it takes?
         if failed {
             return Err(anyhow::Error::msg(
                 "Failed to connect to any hosts! Check your connection and try again.",
@@ -330,17 +327,18 @@ pub async fn download_playlist(
 
         i += 1;
 
+        perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
+
         // Re-downloads if io-error
         if let Ok(true) = tokio::fs::try_exists(&ts_store_location).await {
+            // There's no need to have an error occur if the progress cannot be reported
+            tx.send(perc_downloaded).unwrap_or(());
             info!("The file at `{ts_store_path}` already exists. It likely has been downloaded previously. Skipping to next file");
             continue;
         }
 
         download_ts_file(ts_store_path, id_token, ts_url).await?;
 
-        perc_downloaded = ((i as f32) / (number_of_ts_files as f32)) * 100.0f32;
-
-        // There's no need to have an error occur if the progress cannot be reported
         tx.send(perc_downloaded).unwrap_or(());
     }
 
