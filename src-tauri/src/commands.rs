@@ -42,6 +42,7 @@ pub struct Settings {
 
 fn remove_special(string: &str) -> String {
     string
+        .replace(&['/', '|'], "-")
         .chars()
         .filter(|c| c.is_alphanumeric() || c.is_whitespace() || c == &'_' || c == &'.')
         .collect()
@@ -76,16 +77,17 @@ async fn download_mp4(
     info!("Checking download location");
 
     let mut location = PathBuf::new().join(folder.to_string());
+    let subject_name = remove_special(&video.subject_name);
 
     // Download in the given folder if the filename of the folder is the subject name
     if location
         .file_name()
         .map(|v| v.to_str().unwrap_or(""))
         .unwrap_or("")
-        != &video.subject_name
+        != &subject_name
     {
-        info!("Given folder is not in folder with subject name {}. Adding subject folder", video.subject_name);
-        location.push(&video.subject_name);
+        info!("Given folder is not in folder with subject name {}. Adding subject folder", &subject_name);
+        location.push(subject_name);
     }
 
     // Create directory to store current subject lectures if not already created
