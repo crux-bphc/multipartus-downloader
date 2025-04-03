@@ -4,11 +4,7 @@ use downloader::{download_playlist, Resolution};
 use log::{error, info};
 use tokio_util::sync::CancellationToken;
 
-use std::{
-    ops::DerefMut,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{ops::DerefMut, path::PathBuf, sync::Arc};
 use tauri::{ipc::Channel, AppHandle, Manager, State};
 use tauri_plugin_shell::{
     process::{CommandEvent, TerminatedPayload},
@@ -86,7 +82,10 @@ async fn download_mp4(
         .unwrap_or("")
         != &subject_name
     {
-        info!("Given folder is not in folder with subject name {}. Adding subject folder", &subject_name);
+        info!(
+            "Given folder is not in folder with subject name {}. Adding subject folder",
+            &subject_name
+        );
         location.push(subject_name);
     }
 

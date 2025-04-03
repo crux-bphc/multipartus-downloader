@@ -1,10 +1,10 @@
-use std::{collections::HashMap, fmt::Display, io::Write};
+use std::{collections::HashMap, fmt::Display, io::Write, time::Duration};
 
 use anyhow::{Context, Result};
 
 use log::info;
 use tauri_plugin_http::reqwest::{self, Client};
-use tokio::io::AsyncWriteExt;
+use tokio::{io::AsyncWriteExt, task::JoinSet};
 
 use std::sync::LazyLock;
 
@@ -13,6 +13,7 @@ use crate::commands::get_temp;
 // A static instance of a client, so that just one client is used for all requests
 static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 const BASE: &str = dotenvy_macro::dotenv!("BASE");
+const REMOTES: &str = dotenvy_macro::dotenv!("VITE_REMOTES");
 
 /// References static client to perform a GET request with the token auth header
 async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
@@ -58,6 +59,17 @@ pub struct TrackInfo {
     views: Views,
 }
 
+async fn check_available(url: &str) -> bool {
+    // Check if the host returns anything - ie. it's available to download from
+    // If this does not recieve a response, it's considered unavailable
+    if let Ok(res) = CLIENT.head(url).timeout(Duration::new(5, 0)).send().await {
+        if res.status().is_success() {
+            return true;
+        }
+    }
+    false
+}
+
 // TODOS: Not in order of importance:
 // 1. Use local and online base urls depending on user connectivity
 // 2. Improve error messages
@@ -70,6 +82,51 @@ pub async fn download_playlist(
     ttid: usize,
     filename: &str,
 ) -> Result<(String, Option<String>)> {
+    info!("Parsing remote url json for {ttid}");
+    let bases: Vec<&str> =
+        serde_json::from_str(REMOTES).context("Failed to get remote download urls!")?;
+
+    info!("Finding fastest remote url for {ttid}");
+    // Pick the fastest server to download from
+    let download_base = {
+        let mut set_base = "";
+        // If the client failed to connect to any of the available hosts
+        let mut failed = true;
+
+        let mut set = JoinSet::new();
+        for base in bases {
+            set.spawn(async move {
+                if check_available(base).await {
+                    return (true, base);
+                }
+                (false, base)
+            });
+        }
+
+        // Run all the ping-functions at the same time, and wait for the first successful response
+        while let Some(res) = set.join_next().await {
+            match res {
+                Ok((is_available, base)) => {
+                    failed = !is_available;
+                    set_base = base;
+                    break;
+                }
+
+                Err(_) => failed = true,
+            }
+        }
+
+        if failed {
+            return Err(anyhow::Error::msg(
+                "Failed to connect to any hosts! Check your connection and try again.",
+            ));
+        }
+
+        set_base
+    };
+
+    info!("Selected remote: {download_base} for {ttid}");
+
     // {temp}/multipartus-downloader/Lecture_<lecture-ttid>
     let temp_location = get_temp().join(format!("Lecture_{ttid}"));
 
@@ -112,26 +169,32 @@ pub async fn download_playlist(
 
     // TODO: Use second url in conjuction with local / online bases depending on connectivity
     // Select the correct resolution
-    let selected_m3u8 = if let Resolution::HighRes = resolution {
-        m3u8_tracks
-            .tracks
-            .get("1280x720")
-            .context("Failed to get 1280x720p video playlist")?
-            .first()
-            .context("Failed to get first link in 1280x720p video playlist")?
-    } else {
-        m3u8_tracks
-            .tracks
-            .get("854x480")
-            .context("Failed to get 854x480 video playlist")?
-            .first()
-            .context("Failed to get first link in 854x480 video playlist")?
+    let selected_m3u8 = {
+        let address = if let Resolution::HighRes = resolution {
+            m3u8_tracks
+                .tracks
+                .get("1280x720")
+                .context("Failed to get 1280x720p video playlist")?
+                .last()
+                .context("Failed to get first link in 1280x720p video playlist")?
+        } else {
+            m3u8_tracks
+                .tracks
+                .get("854x480")
+                .context("Failed to get 854x480 video playlist")?
+                .last()
+                .context("Failed to get first link in 854x480 video playlist")?
+        }
+        .clone();
+        download_base.to_string() + "/api/fetchvideo?tag=LC&inm3u8=" + &address
     };
+
+    info!("Selected playlist file url: {selected_m3u8} for {ttid}");
 
     info!("Fetching main playlist file for {ttid}");
 
     // Get .m3u8 file that contains the video chunks
-    let m3u8_in_text = get(selected_m3u8, id_token)
+    let m3u8_in_text = get(&selected_m3u8, id_token)
         .await
         .context("Failed to fetch playlist file!")?
         .text()
@@ -175,7 +238,14 @@ pub async fn download_playlist(
     // Side = 0 -> Parse first headers, side = 1 / 2: Different views
     let mut side = 0u8;
 
-    let number_of_ts_files = (m3u8_lines.clone().count() - 8) / 2;
+    let m3u8_line_count = m3u8_lines.clone().count();
+
+    let number_of_ts_files = (if m3u8_line_count > 8 {
+        m3u8_line_count
+    } else {
+        8
+    } - 8)
+        / 2;
     let mut perc_downloaded;
 
     // Get the folder to store the .ts files

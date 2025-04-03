@@ -12,6 +12,7 @@ use log4rs::{
     config::{Appender, Root},
     Config,
 };
+
 use multipartus_downloader_lib::run;
 
 fn clear_logs(dir: &PathBuf) -> std::io::Result<()> {
