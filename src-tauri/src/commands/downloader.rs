@@ -4,7 +4,7 @@ use std::{
 
 use anyhow::{Context, Result};
 
-use log::info;
+use tracing::info;
 use tauri_plugin_http::reqwest::{self, Client};
 use tokio::{io::AsyncWriteExt, task::JoinSet};
 
@@ -413,7 +413,7 @@ pub async fn download_playlist(
     }
 
     if m3u8_tracks.views.right {
-        info!("Output .m3u8 playlist created at `{m3u8_side1_file_path}` (side 2) for {ttid}");
+        info!("Output .m3u8 playlist created at `{m3u8_side2_file_path}` (side 2) for {ttid}");
         write_m3u8(&m3u8_side2_file_path, out_2).await?;
     }
 

@@ -1,7 +1,7 @@
 pub mod downloader;
 
 use downloader::{download_playlist, Resolution};
-use log::{error, info};
+use tracing::{error, info};
 use tokio_util::sync::CancellationToken;
 
 use std::{ops::DerefMut, path::PathBuf, sync::Arc};
@@ -12,7 +12,7 @@ use tauri_plugin_shell::{
 };
 use tokio::{io::AsyncWriteExt, sync::Mutex, task::JoinSet};
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Video {
     pub ttid: i32,
