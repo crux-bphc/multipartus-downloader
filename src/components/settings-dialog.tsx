@@ -17,13 +17,24 @@ enum Resolution {
 	LowRes = "LowRes",
 }
 
-type AppSettings = {
+type UserSettings = {
 	resolution: Resolution;
+	base: string;
 };
 
+type AppSettings = {
+	resolution: Resolution;
+	base: string | null;
+};
+
+// Select remote automatically
+const AUTO = "Auto";
+
 export const SettingsDialog = () => {
-	const [settings, setSettings] = useState<AppSettings>({
+
+	const [settings, setSettings] = useState<UserSettings>({
 		resolution: Resolution.HighRes,
+		base: AUTO,
 	});
 
 	const [open, setOpen] = useState(false);
@@ -41,7 +52,9 @@ export const SettingsDialog = () => {
 	async function openSettings() {
 		setOpen(true);
 		try {
-			const newSettings: AppSettings = await invoke("load_settings");
+			const newSettings: UserSettings = await invoke("load_settings");
+			if (newSettings.base == null) newSettings.base = AUTO;
+
 			setSettings(newSettings);
 		} catch (e) {
 			console.error("Failed to load old settings", e);
@@ -58,7 +71,11 @@ export const SettingsDialog = () => {
 
 	async function saveSettings() {
 		try {
-			await invoke("save_settings", { settings });
+
+			let actualSettings: AppSettings = { ...settings };
+			if (settings.base == AUTO) actualSettings.base = null;
+
+			await invoke("save_settings", { settings: actualSettings });
 		} catch (e) {
 			console.error("Failed to save settings!", e);
 		}
@@ -66,6 +83,10 @@ export const SettingsDialog = () => {
 
 	async function setResolution(value: Resolution) {
 		setSettings((prev) => ({ ...prev, resolution: value }));
+	}
+
+	async function setBase(value: string) {
+		setSettings((prev) => ({ ...prev, base: value }));
 	}
 
 	return (
@@ -96,6 +117,26 @@ export const SettingsDialog = () => {
 							<SelectQuality
 								onValueChange={setResolution}
 								value={settings.resolution}
+							/>
+						</div>
+
+						{/* Remote */}
+						<div className="flex items-center gap-4">
+							<div>
+								<b>Download Source</b>
+								<p className="text-xs">
+									Select source to download from
+									<br />
+									<b>Auto:</b> Try downloading from fastest source
+									<br />
+									<b>Remote:</b> Works anywhere, might be slower
+									<br />
+									<b>Local:</b> Works only on LAN and local WiFi, usually faster
+								</p>
+							</div>
+							<SelectRemotes
+								onValueChange={setBase}
+								value={settings.base}
 							/>
 						</div>
 
@@ -146,6 +187,31 @@ function SelectQuality({ ...props }: React.ComponentProps<typeof Select>) {
 				</SelectItem>
 				<SelectItem value={Resolution.LowRes} className="py-2">
 					Low Res
+				</SelectItem>
+			</SelectContent>
+		</Select>
+	);
+}
+
+function SelectRemotes({ ...props }: React.ComponentProps<typeof Select>) {
+	let bases: string[] = JSON.parse(import.meta.env.VITE_REMOTES);
+
+	return (
+		<Select {...props}>
+			<SelectTrigger className="text-nowrap w-64 h-10 select-none py-2 place-self-center border-2">
+				<SelectValue placeholder="Select Quality" />
+			</SelectTrigger>
+			<SelectContent>
+				{
+					bases.map(value => (
+						<SelectItem value={value} className="py-2">
+							{/* Assume https:// is remote, otherwise all links are local */}
+							{value.includes('https://') ? "(Remote) " + value : "(Local) " + value}
+						</SelectItem>
+					))
+				}
+				<SelectItem value={AUTO} className="py-2">
+					Auto
 				</SelectItem>
 			</SelectContent>
 		</Select>

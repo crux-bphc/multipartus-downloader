@@ -1,4 +1,6 @@
-use std::{collections::HashMap, fmt::Display, future::Future, io::Write, time::Duration};
+use std::{
+    collections::HashMap, fmt::Display, future::Future, io::Write, sync::Arc, time::Duration,
+};
 
 use anyhow::{Context, Result};
 
@@ -147,12 +149,19 @@ async fn select_base<'a>(ttid: usize) -> Result<&'a str> {
 /// Creates an m3u8 file referencing local unencrypted .ts files
 pub async fn download_playlist(
     resolution: Resolution,
+    base: Arc<Option<String>>,
     tx: tokio::sync::watch::Sender<f32>,
     id_token: &str,
     ttid: usize,
     filename: &str,
 ) -> Result<(String, Option<String>)> {
-    let download_base = retry(async || select_base(ttid).await, "select_base").await?;
+    // If a base has been dictated by settings
+    let download_base = if let Some(base) = base.as_ref() {
+        info!("Using {base} as per download settings to download from");
+        base.as_str()
+    } else {
+        retry(async || select_base(ttid).await, "select_base").await?
+    };
 
     info!("Selected remote: {download_base} for {ttid}");
 
@@ -397,7 +406,7 @@ pub async fn download_playlist(
     out_1 += "#EXT-X-ENDLIST";
     out_2 += "#EXT-X-ENDLIST";
 
-    // Could also check against the existance of the side 2 file path
+    // Could also check against the existence of the side 2 file path
     if m3u8_tracks.views.left {
         info!("Output .m3u8 playlist created at `{m3u8_side1_file_path}` (side 1) for {ttid}");
         write_m3u8(&m3u8_side1_file_path, out_1).await?;

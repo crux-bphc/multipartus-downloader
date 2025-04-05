@@ -34,6 +34,7 @@ pub struct DownloadErrorEvent {
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Settings {
     resolution: Resolution,
+    base: Option<String>,
 }
 
 fn remove_special(string: &str) -> String {
@@ -47,6 +48,7 @@ fn remove_special(string: &str) -> String {
 // TODO: Improve error handling
 async fn download_mp4(
     resolution: Resolution,
+    base: Arc<Option<String>>,
     nth: usize,
     tx: Arc<tokio::sync::mpsc::Sender<(usize, f32)>>,
     video: &Video,
@@ -105,10 +107,16 @@ async fn download_mp4(
 
     info!("Starting download of m3u8 playlist");
 
-    let (side1, side2) =
-        download_playlist(resolution, itx, &token, video.ttid as usize, video_file)
-            .await
-            .map_err(|e| (video.number, e.to_string()))?;
+    let (side1, side2) = download_playlist(
+        resolution,
+        base,
+        itx,
+        &token,
+        video.ttid as usize,
+        video_file,
+    )
+    .await
+    .map_err(|e| (video.number, e.to_string()))?;
 
     info!("m3u8 playlist download complete");
 
@@ -292,11 +300,12 @@ async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
     Ok(out)
 }
 
-async fn get_resolution(app: &AppHandle) -> Resolution {
-    if let Ok(Settings { resolution }) = get_settings(app).await {
-        resolution
+async fn get_resolved_settings(app: &AppHandle) -> (Resolution, Option<String>) {
+    let settings = get_settings(app).await;
+    if let Ok(Settings { resolution, base }) = settings {
+        (resolution, base)
     } else {
-        Resolution::HighRes
+        (Resolution::HighRes, None)
     }
 }
 
@@ -325,7 +334,8 @@ pub async fn download(
         old_cancellation_token.clone()
     };
 
-    let resolution = get_resolution(&app).await;
+    let (resolution, base) = get_resolved_settings(&app).await;
+    let base = Arc::new(base);
 
     let token = Arc::new(token);
     let folder = Arc::new(folder);
@@ -345,6 +355,7 @@ pub async fn download(
         let app_ref = Arc::clone(&app);
         let folder_ref = Arc::clone(&folder);
         let cancellation_token = cancellation_token.clone();
+        let base_clone = Arc::clone(&base);
 
         let tx_clone = Arc::clone(&tx);
         set.spawn(async move {
@@ -354,7 +365,7 @@ pub async fn download(
                     Err((video.number, "Cancelled".to_string()))
                 }
                 // does this need to be cancel safe?
-                result = download_mp4(resolution, i, tx_clone, &video, local_token, folder_ref, app_ref) => result,
+                result = download_mp4(resolution, base_clone, i, tx_clone, &video, local_token, folder_ref, app_ref) => result,
             }
         });
     }
