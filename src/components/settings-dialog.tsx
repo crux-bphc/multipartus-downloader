@@ -3,7 +3,7 @@ import { Settings } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { Dialog, DialogPortal } from "./ui/dialog";
-import { DialogContent, DialogHeader } from "./ui/dialog";
+import { DialogContent, DialogTitle } from "./ui/dialog";
 import {
 	Select,
 	SelectContent,
@@ -19,11 +19,16 @@ enum Resolution {
 
 type AppSettings = {
 	resolution: Resolution;
+	base: string | null;
 };
+
+// Select remote automatically
+const AUTO = "Auto";
 
 export const SettingsDialog = () => {
 	const [settings, setSettings] = useState<AppSettings>({
 		resolution: Resolution.HighRes,
+		base: null,
 	});
 
 	const [open, setOpen] = useState(false);
@@ -68,6 +73,13 @@ export const SettingsDialog = () => {
 		setSettings((prev) => ({ ...prev, resolution: value }));
 	}
 
+	async function setBase(value: string) {
+		setSettings((prev) => ({
+			...prev,
+			base: (value == AUTO ? null : value),
+		}));
+	}
+
 	return (
 		<div>
 			<Button
@@ -80,8 +92,10 @@ export const SettingsDialog = () => {
 			</Button>
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogPortal>
-					<DialogContent className="gap-6">
-						<DialogHeader className="text-2xl font-bold">Settings</DialogHeader>
+					<DialogContent className="gap-6" aria-describedby={undefined}>
+						<DialogTitle className="text-2xl font-bold">
+							Settings
+						</DialogTitle>
 
 						{/* Video resolution */}
 						<div className="flex items-center gap-4">
@@ -90,7 +104,8 @@ export const SettingsDialog = () => {
 								<p className="text-xs">
 									Select the resolution you want to download
 									<br />
-									High Res: <b>720p</b>, Low Res: usually <b>480p</b>
+									High Res: <b>720p</b>, Low Res: usually{" "}
+									<b>480p</b>
 								</p>
 							</div>
 							<SelectQuality
@@ -99,9 +114,38 @@ export const SettingsDialog = () => {
 							/>
 						</div>
 
+						{/* Remote */}
+						<div className="flex items-center gap-4">
+							<div>
+								<b>Download Source</b>
+								<p className="text-xs">
+									Select source to download from
+									<br />
+									<b>Auto:</b>{" "}
+									Try downloading from fastest source
+									<br />
+									<b>Remote:</b>{" "}
+									Works anywhere, might be slower
+									<br />
+									<b>Local:</b>{" "}
+									Works only on LAN and local WiFi, usually
+									faster
+								</p>
+							</div>
+							<SelectRemotes
+								onValueChange={setBase}
+								value={settings.base == null
+									? AUTO
+									: settings.base}
+							/>
+						</div>
+
 						{/* Clear cache */}
 						<div className="flex gap-4">
-							<Button variant={"destructive"} onClick={clearCache}>
+							<Button
+								variant={"destructive"}
+								onClick={clearCache}
+							>
 								Clear Cache ({cacheSize})
 							</Button>
 							<p className="text-xs place-self-center">
@@ -141,11 +185,36 @@ function SelectQuality({ ...props }: React.ComponentProps<typeof Select>) {
 				<SelectValue placeholder="Select Quality" />
 			</SelectTrigger>
 			<SelectContent>
-				<SelectItem value={Resolution.HighRes} className="py-2">
+				<SelectItem value={Resolution.HighRes} key={0} className="py-2">
 					High Res
 				</SelectItem>
-				<SelectItem value={Resolution.LowRes} className="py-2">
+				<SelectItem value={Resolution.LowRes} key={1} className="py-2">
 					Low Res
+				</SelectItem>
+			</SelectContent>
+		</Select>
+	);
+}
+
+function SelectRemotes({ ...props }: React.ComponentProps<typeof Select>) {
+	let bases: string[] = JSON.parse(import.meta.env.VITE_REMOTES);
+
+	return (
+		<Select {...props}>
+			<SelectTrigger className="text-nowrap w-64 h-10 select-none py-2 place-self-center border-2">
+				<SelectValue placeholder="Select Quality" />
+			</SelectTrigger>
+			<SelectContent>
+				{bases.map((value, i) => (
+					<SelectItem value={value} key={i} className="py-2">
+						{/* Assume https:// is remote, otherwise all links are local */}
+						{value.includes("https://")
+							? "(Remote) " + value
+							: "(Local) " + value}
+					</SelectItem>
+				))}
+				<SelectItem value={AUTO} key={bases.length} className="py-2">
+					Auto
 				</SelectItem>
 			</SelectContent>
 		</Select>
