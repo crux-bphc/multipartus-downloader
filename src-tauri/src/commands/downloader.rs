@@ -2,7 +2,7 @@ use std::{
     collections::HashMap, fmt::Display, future::Future, io::Write, sync::Arc, time::Duration,
 };
 
-use anyhow::{Context, Result};
+use crate::prelude::*;
 
 use tauri_plugin_http::reqwest::{self, Client};
 use tokio::{io::AsyncWriteExt, task::JoinSet};
@@ -16,7 +16,7 @@ use crate::commands::get_temp;
 static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 const BASE: &str = dotenvy_macro::dotenv!("BASE");
 const REMOTES: &str = dotenvy_macro::dotenv!("VITE_REMOTES");
-const MAX_RETRY_COUNT: LazyLock<usize> =
+static MAX_RETRY_COUNT: LazyLock<usize> =
     LazyLock::new(|| dotenvy_macro::dotenv!("MAX_RETRY_COUNT").parse().unwrap());
 
 /// References static client to perform a GET request with the token auth header
@@ -29,7 +29,7 @@ async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
         .context(format!("Failed to GET data from url \"{url}\"!"))
 }
 
-#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum Resolution {
     /// 480p
     LowRes,
@@ -80,29 +80,28 @@ async fn retry<T, O: Future<Output = Result<T>>, F: Fn() -> O>(
     name: &str,
 ) -> Result<T> {
     let mut error = None;
-    for i in 0..*MAX_RETRY_COUNT {
+
+    for i in 1..*MAX_RETRY_COUNT {
         match function().await {
             Err(err) => {
                 info!(
                     "Task `{name}` failed {} time(s). Max retry count is {}. {}etrying again.",
-                    i + 1,
+                    i,
                     *MAX_RETRY_COUNT,
-                    if i == *MAX_RETRY_COUNT - 1 {
-                        "Not r"
-                    } else {
-                        "R"
-                    }
+                    if i == *MAX_RETRY_COUNT { "Not r" } else { "R" }
                 );
-                error = Some(Err(err))
+                error = Some(err)
             }
             Ok(v) => return Ok(v),
         };
     }
-    return error.context(
+
+    Err(error.expect(
         "Failed to run retry function, and an error was not registered. This should be impossible",
-    )?;
+    ))
 }
 
+#[instrument(fields(ttid))]
 async fn select_base<'a>(ttid: usize) -> Result<&'a str> {
     info!("Parsing remote url json for {ttid}");
     let bases: Vec<&str> =

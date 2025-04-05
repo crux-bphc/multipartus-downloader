@@ -1,8 +1,11 @@
 pub mod downloader;
 
+use crate::prelude::*;
 use downloader::{download_playlist, Resolution};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
+
+use tokio::sync::mpsc;
 
 use std::{ops::DerefMut, path::PathBuf, sync::Arc};
 use tauri::{ipc::Channel, AppHandle, Manager, State};
@@ -12,45 +15,47 @@ use tauri_plugin_shell::{
 };
 use tokio::{io::AsyncWriteExt, sync::Mutex, task::JoinSet};
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Video {
-    pub ttid: i32,
-    pub topic: String,
-    pub subject_name: String,
-    pub number: i32,
+    ttid: i32,
+    topic: String,
+    subject_name: String,
+    number: i32,
 }
 
-#[derive(Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct DownloadProgressEvent {
     percent: f32,
 }
 
-#[derive(Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct DownloadErrorEvent {
     errors: Vec<String>,
 }
 
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Settings {
     resolution: Resolution,
     base: Option<String>,
 }
 
-fn remove_special(string: &str) -> String {
+fn remove_special(string: impl AsRef<str>) -> String {
     string
-        .replace(&['/', '|'], "-")
+        .as_ref()
+        .replace(['/', '|'], "-")
         .chars()
         .filter(|c| c.is_alphanumeric() || c.is_whitespace() || c == &'_' || c == &'.')
         .collect()
 }
 
 // TODO: Improve error handling
+#[instrument(fields(nth, ?video, %token, %folder, ?resolution), skip_all)]
 async fn download_mp4(
     resolution: Resolution,
     base: Arc<Option<String>>,
     nth: usize,
-    tx: Arc<tokio::sync::mpsc::Sender<(usize, f32)>>,
+    tx: Arc<mpsc::Sender<(usize, f32)>>,
     video: &Video,
     token: Arc<String>,
     folder: Arc<String>,
@@ -82,11 +87,11 @@ async fn download_mp4(
         .file_name()
         .map(|v| v.to_str().unwrap_or(""))
         .unwrap_or("")
-        != &subject_name
+        != subject_name
     {
         info!(
             "Given folder is not in folder with subject name {}. Adding subject folder",
-            &subject_name
+            subject_name
         );
         location.push(subject_name);
     }
@@ -94,6 +99,7 @@ async fn download_mp4(
     // Create directory to store current subject lectures if not already created
     tokio::fs::create_dir_all(&location)
         .await
+        .context("creating subject download location")
         .map_err(|e| (video.number, e.to_string()))?;
 
     location.push(format!("{video_file}_{resolution}.mp4"));
@@ -116,6 +122,7 @@ async fn download_mp4(
         video_file,
     )
     .await
+    .with_context(|| format!("downloading playlist: {}", video.number))
     .map_err(|e| (video.number, e.to_string()))?;
 
     info!("m3u8 playlist download complete");
@@ -125,6 +132,7 @@ async fn download_mp4(
     let ffmpeg = app
         .shell()
         .sidecar("ffmpeg")
+        .context("ffmpeg command create")
         .map_err(|e| (video.number, e.to_string()))?;
 
     let location_str = location.to_str().ok_or(()).map_err(|_| {
@@ -168,7 +176,10 @@ async fn download_mp4(
     let ffmpeg = ffmpeg.args(args.as_slice());
 
     let mut ffmpeg_errors = String::new();
-    let (mut rx, _child) = ffmpeg.spawn().map_err(|e| (video.number, e.to_string()))?;
+    let (mut rx, _child) = ffmpeg
+        .spawn()
+        .context("spawn ffmpeg")
+        .map_err(|e| (video.number, e.to_string()))?;
 
     info!("ffmpeg spawned");
 
@@ -235,17 +246,21 @@ fn get_temp() -> PathBuf {
 }
 
 #[tauri::command]
+#[instrument(skip_all)]
 pub async fn clear_cache() -> Result<(), String> {
     info!("clear_cache command invoked");
     let temp = get_temp();
     tokio::fs::remove_dir_all(temp.as_path().to_str().unwrap_or("./tmp"))
         .await
+        .inspect_err(|e| error!("error clearing cache: {e}"))
+        .context("removing cache dir")
         .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 // Should this run on another thread?
 #[tauri::command]
+#[instrument(skip_all)]
 pub fn get_cache_size() -> Result<String, String> {
     info!("get_cache_size command invoked");
     let temp = get_temp();
@@ -253,26 +268,51 @@ pub fn get_cache_size() -> Result<String, String> {
         info!("Temp file for multipartus-downloader does not exist");
         return Ok("0K".to_string());
     }
-    dir_size::get_size_in_abbr_human_bytes(temp.as_path()).map_err(|e| e.to_string())
+    dir_size::get_size_in_abbr_human_bytes(temp.as_path())
+        .inspect_err(|e| error!("failed getting temp dir size: {e}"))
+        .context("getting temp dir size")
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
+#[instrument(skip_all)]
 pub async fn save_settings(app: AppHandle, settings: Settings) -> Result<(), String> {
     info!("save_settings command invoked");
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+
+    // the .inspect_err.context.map_err waterfall is a lil fucked, but this is an top level fn.
+    // we have to log the errors here
+
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .inspect_err(|e| error!("error reading app data dir: {e}"))
+        .context("reading app data dir")
+        .map_err(|e| e.to_string())?;
 
     tokio::fs::create_dir_all(&app_data)
         .await
+        .inspect_err(|e| error!("failed creating app data dir: {e}"))
+        .context("creating app data dir")
         .map_err(|e| e.to_string())?;
 
     let mut out = tokio::fs::File::create(app_data.join("settings.json"))
         .await
+        .inspect_err(|e| error!("failed creating settings.json: {e}"))
+        .context("creating settings.json")
         .map_err(|e| e.to_string())?;
 
-    let json = serde_json::to_string(&settings).map_err(|e| e.to_string())?;
+    let json = serde_json::to_string(&settings)
+        .inspect_err(|e| {
+            error!("failed at serializing settings: {e}");
+            trace!(?settings);
+        })
+        .context("serializing settings to json")
+        .map_err(|e| e.to_string())?;
 
     out.write(json.as_bytes())
         .await
+        .inspect_err(|e| error!("failed writing settings.json: {e}"))
+        .context("writing settings.json")
         .map_err(|e| e.to_string())?;
 
     info!("Saved new settings");
@@ -280,15 +320,22 @@ pub async fn save_settings(app: AppHandle, settings: Settings) -> Result<(), Str
     Ok(())
 }
 
+#[instrument(skip_all)]
 async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .context("reading app data dir path")
+        .map_err(|e| e.to_string())?;
 
     let out = serde_json::from_slice(
         tokio::fs::read(app_data.join("settings.json"))
             .await
+            .context("reading settings.json")
             .map_err(|e| e.to_string())?
             .as_slice(),
     )
+    .context("deserializing settings.json")
     .map_err(|e| e.to_string())?;
 
     info!("Settings loaded");
@@ -296,6 +343,7 @@ async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
     Ok(out)
 }
 
+#[instrument(skip_all)]
 async fn get_resolved_settings(app: &AppHandle) -> (Resolution, Option<String>) {
     let settings = get_settings(app).await;
     if let Ok(Settings { resolution, base }) = settings {
@@ -306,12 +354,14 @@ async fn get_resolved_settings(app: &AppHandle) -> (Resolution, Option<String>) 
 }
 
 #[tauri::command]
+#[instrument(skip_all)]
 pub async fn load_settings(app: AppHandle) -> Result<Settings, String> {
     info!("load_settings command invoked");
     get_settings(&app).await
 }
 
 #[tauri::command]
+#[instrument(fields(token, folder), skip_all)]
 pub async fn download(
     cancellation_token: State<'_, Mutex<CancellationToken>>,
     app: AppHandle,
@@ -365,7 +415,6 @@ pub async fn download(
             }
         });
     }
-
     // Send progress as each download task sends a message through the mpsc channel
     tokio::spawn(async move {
         let mut channels = vec![0.0; num_videos];
@@ -393,19 +442,21 @@ pub async fn download(
                 info!("Deleting lecture {} from cache", ttid);
                 // This lecture download has completed, remove it from the cache
                 let remove_loc = get_temp().join(format!("Lecture_{}", ttid));
-                if let Err(error) = tokio::fs::remove_dir_all(remove_loc).await {
-                    error!("Failed to remove download folder of lecture {ttid}: {error}");
-                };
+
+                let _ = tokio::fs::remove_dir_all(remove_loc)
+                    .await
+                    .inspect_err(|error| {
+                        error!("Failed to remove download folder of lecture {ttid}: {error}");
+                    });
             }
         };
     }
-
-    drop(set);
 
     Ok(())
 }
 
 #[tauri::command]
+#[instrument(skip_all)]
 pub async fn cancel_download(
     cancellation_token: State<'_, Mutex<CancellationToken>>,
 ) -> Result<(), ()> {
