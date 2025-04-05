@@ -4,9 +4,9 @@ use std::{
 
 use anyhow::{Context, Result};
 
-use tracing::info;
 use tauri_plugin_http::reqwest::{self, Client};
 use tokio::{io::AsyncWriteExt, task::JoinSet};
+use tracing::info;
 
 use std::sync::LazyLock;
 

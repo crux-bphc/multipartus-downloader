@@ -3,7 +3,7 @@ import { Settings } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { Dialog, DialogPortal } from "./ui/dialog";
-import { DialogContent, DialogHeader } from "./ui/dialog";
+import { DialogContent, DialogTitle } from "./ui/dialog";
 import {
 	Select,
 	SelectContent,
@@ -92,10 +92,10 @@ export const SettingsDialog = () => {
 			</Button>
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogPortal>
-					<DialogContent className="gap-6">
-						<DialogHeader className="text-2xl font-bold">
+					<DialogContent className="gap-6" aria-describedby={undefined}>
+						<DialogTitle className="text-2xl font-bold">
 							Settings
-						</DialogHeader>
+						</DialogTitle>
 
 						{/* Video resolution */}
 						<div className="flex items-center gap-4">
@@ -185,10 +185,10 @@ function SelectQuality({ ...props }: React.ComponentProps<typeof Select>) {
 				<SelectValue placeholder="Select Quality" />
 			</SelectTrigger>
 			<SelectContent>
-				<SelectItem value={Resolution.HighRes} className="py-2">
+				<SelectItem value={Resolution.HighRes} key={0} className="py-2">
 					High Res
 				</SelectItem>
-				<SelectItem value={Resolution.LowRes} className="py-2">
+				<SelectItem value={Resolution.LowRes} key={1} className="py-2">
 					Low Res
 				</SelectItem>
 			</SelectContent>
@@ -205,15 +205,15 @@ function SelectRemotes({ ...props }: React.ComponentProps<typeof Select>) {
 				<SelectValue placeholder="Select Quality" />
 			</SelectTrigger>
 			<SelectContent>
-				{bases.map((value) => (
-					<SelectItem value={value} className="py-2">
+				{bases.map((value, i) => (
+					<SelectItem value={value} key={i} className="py-2">
 						{/* Assume https:// is remote, otherwise all links are local */}
 						{value.includes("https://")
 							? "(Remote) " + value
 							: "(Local) " + value}
 					</SelectItem>
 				))}
-				<SelectItem value={AUTO} className="py-2">
+				<SelectItem value={AUTO} key={bases.length} className="py-2">
 					Auto
 				</SelectItem>
 			</SelectContent>

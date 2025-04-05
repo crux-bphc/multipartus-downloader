@@ -1,8 +1,8 @@
 pub mod downloader;
 
 use downloader::{download_playlist, Resolution};
-use tracing::{error, info};
 use tokio_util::sync::CancellationToken;
+use tracing::{error, info};
 
 use std::{ops::DerefMut, path::PathBuf, sync::Arc};
 use tauri::{ipc::Channel, AppHandle, Manager, State};
@@ -282,10 +282,6 @@ pub async fn save_settings(app: AppHandle, settings: Settings) -> Result<(), Str
 
 async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-
-    tokio::fs::create_dir_all(&app_data)
-        .await
-        .map_err(|e| e.to_string())?;
 
     let out = serde_json::from_slice(
         tokio::fs::read(app_data.join("settings.json"))
