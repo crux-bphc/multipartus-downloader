@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, io::Write, time::Duration};
+use std::{collections::HashMap, fmt::Display, future::Future, io::Write, time::Duration};
 
 use anyhow::{Context, Result};
 
@@ -14,6 +14,8 @@ use crate::commands::get_temp;
 static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 const BASE: &str = dotenvy_macro::dotenv!("BASE");
 const REMOTES: &str = dotenvy_macro::dotenv!("VITE_REMOTES");
+const MAX_RETRY_COUNT: LazyLock<usize> =
+    LazyLock::new(|| dotenvy_macro::dotenv!("MAX_RETRY_COUNT").parse().unwrap());
 
 /// References static client to perform a GET request with the token auth header
 async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
@@ -70,9 +72,77 @@ async fn check_available(url: &str) -> bool {
     false
 }
 
+/// Call a function <MAX_RETRY_COUNT> times or until it succeeds, whichever is lower
+async fn retry<T, O: Future<Output = Result<T>>, F: Fn() -> O>(
+    function: F,
+    name: &str,
+) -> Result<T> {
+    let mut error = None;
+    for i in 0..*MAX_RETRY_COUNT {
+        match function().await {
+            Err(err) => {
+                info!(
+                    "Task `{name}` failed {} time(s). Max retry count is {}. {}etrying again.",
+                    i + 1,
+                    *MAX_RETRY_COUNT,
+                    if i == *MAX_RETRY_COUNT - 1 {
+                        "Not r"
+                    } else {
+                        "R"
+                    }
+                );
+                error = Some(Err(err))
+            }
+            Ok(v) => return Ok(v),
+        };
+    }
+    return error.context(
+        "Failed to run retry function, and an error was not registered. This should be impossible",
+    )?;
+}
+
+async fn select_base<'a>(ttid: usize) -> Result<&'a str> {
+    info!("Parsing remote url json for {ttid}");
+    let bases: Vec<&str> =
+        serde_json::from_str(REMOTES).context("Failed to get remote download urls!")?;
+
+    info!("Finding fastest remote url for {ttid}");
+    // Pick the fastest server to download from
+    let mut set_base = "";
+    // If the client failed to connect to any of the available hosts
+    let mut failed = true;
+
+    let mut set = JoinSet::new();
+    for base in bases {
+        set.spawn(async move { (check_available(base).await, base) });
+    }
+
+    // Run all the ping-functions at the same time, and wait for the first successful response
+    while let Some(res) = set.join_next().await {
+        match res {
+            Ok((is_available, base)) => {
+                failed = !is_available;
+                set_base = base;
+                break;
+            }
+
+            Err(_) => failed = true,
+        }
+    }
+
+    // Is 5s a good enough amount of time to decide if a server is unavailable?
+    // Or should it try connecting to the default server again - waiting as long as it takes?
+    if failed {
+        return Err(anyhow::Error::msg(
+            "Failed to connect to any hosts! Check your connection and try again.",
+        ));
+    }
+
+    Ok(set_base)
+}
+
 // TODOS: Not in order of importance:
-// 1. Use local and online base urls depending on user connectivity
-// 2. Improve error messages
+// 1. Improve error messages
 
 /// Creates an m3u8 file referencing local unencrypted .ts files
 pub async fn download_playlist(
@@ -82,45 +152,7 @@ pub async fn download_playlist(
     ttid: usize,
     filename: &str,
 ) -> Result<(String, Option<String>)> {
-    info!("Parsing remote url json for {ttid}");
-    let bases: Vec<&str> =
-        serde_json::from_str(REMOTES).context("Failed to get remote download urls!")?;
-
-    info!("Finding fastest remote url for {ttid}");
-    // Pick the fastest server to download from
-    let download_base = {
-        let mut set_base = "";
-        // If the client failed to connect to any of the available hosts
-        let mut failed = true;
-
-        let mut set = JoinSet::new();
-        for base in bases {
-            set.spawn(async move { (check_available(base).await, base) });
-        }
-
-        // Run all the ping-functions at the same time, and wait for the first successful response
-        while let Some(res) = set.join_next().await {
-            match res {
-                Ok((is_available, base)) => {
-                    failed = !is_available;
-                    set_base = base;
-                    break;
-                }
-
-                Err(_) => failed = true,
-            }
-        }
-
-        // Is 5s a good enough amount of time to decide if a server is unavailable?
-        // Or should it try connecting to the default server again - waiting as long as it takes?
-        if failed {
-            return Err(anyhow::Error::msg(
-                "Failed to connect to any hosts! Check your connection and try again.",
-            ));
-        }
-
-        set_base
-    };
+    let download_base = retry(async || select_base(ttid).await, "select_base").await?;
 
     info!("Selected remote: {download_base} for {ttid}");
 
@@ -150,12 +182,18 @@ pub async fn download_playlist(
 
     // I hope you love these beautiful waterfalls @TheComputerM :)
     // Get impartus .m3u8 file
-    let m3u8_index_bytes = get(&m3u8_info, id_token)
-        .await
-        .context("Failed to fetch index playlist file!")?
-        .bytes()
-        .await
-        .context("Failed to read contents of playlist info file!")?;
+    let m3u8_index_bytes = retry(
+        async || {
+            get(&m3u8_info, id_token)
+                .await
+                .context("Failed to fetch index playlist file!")?
+                .bytes()
+                .await
+                .context("Failed to read contents of playlist info file!")
+        },
+        "Get m3u8 index bytes",
+    )
+    .await?;
 
     info!("Fetched playlist json, now parsing it for {ttid}");
 
@@ -191,23 +229,35 @@ pub async fn download_playlist(
     info!("Fetching main playlist file for {ttid}");
 
     // Get .m3u8 file that contains the video chunks
-    let m3u8_in_text = get(&selected_m3u8, id_token)
-        .await
-        .context("Failed to fetch playlist file!")?
-        .text()
-        .await
-        .context("Failed to read contents of playlist file!")?;
+    let m3u8_in_text = retry(
+        async || {
+            get(&selected_m3u8, id_token)
+                .await
+                .context("Failed to fetch playlist file!")?
+                .text()
+                .await
+                .context("Failed to read contents of playlist file!")
+        },
+        "Get m3u8 playlist file",
+    )
+    .await?;
 
     info!("Fetched main playlist file. Fetching key file for {ttid}");
 
     // get impartus key
-    let key = get(&key_url, id_token)
-        .await
-        .context("Failed to fetch key!")?
-        .bytes()
-        .await
-        .context("Failed to read key!")?
-        .to_vec();
+    let key = retry(
+        async || {
+            get(&key_url, id_token)
+                .await
+                .context("Failed to fetch key!")?
+                .bytes()
+                .await
+                .context("Failed to read key!")
+        },
+        "Get key file for decrypting incoming chunks",
+    )
+    .await?
+    .to_vec();
 
     info!("Fetched key file. Opening key file for {ttid}");
 
@@ -271,7 +321,7 @@ pub async fn download_playlist(
         // Other view of the lecture
         if header.starts_with("#EXT-X-DISCONTINUITY") {
             info!("Finished parsing side 1, starting side 2");
-            header = m3u8_lines.next().unwrap();
+            header = m3u8_lines.next().context("Expected a new line in the playlist file, but found nothing! Maybe the video is corrupted?")?;
             side = 2;
             side2_file_path = Some(m3u8_side2_file_path.clone());
         }
@@ -307,15 +357,16 @@ pub async fn download_playlist(
         }
 
         // The url to send a get request to
-        let ts_url = m3u8_lines.next().unwrap();
+        let ts_url = m3u8_lines.next().context("Expected a new line in the playlist file, but found nothing! Maybe the video is corrupted?")?;
 
         // Get the file-name of the .ts file
         let ts_store_location = ts_store_location.join(format!(
             "tmp_ttid_{ttid}_{filename}_side_{side}_{i}_{resolution}.ts"
         ));
 
-        // Failable?
-        let ts_store_path = ts_store_location.to_str().unwrap();
+        let ts_store_path = ts_store_location
+            .to_str()
+            .context("Failed to find download location for temp media file!")?;
 
         let out = if side == 1 { &mut out_1 } else { &mut out_2 };
 
@@ -381,13 +432,19 @@ async fn write_m3u8(filepath: &String, out: String) -> Result<()> {
 }
 
 async fn download_ts_file(file_path: &str, id_token: &str, url: &str) -> Result<()> {
-    let ts_data = get(url, id_token)
-        .await
-        .context("Failed to fetch video chunk!")?
-        .bytes()
-        .await
-        .context("Failed to read video chunk!")?
-        .to_vec();
+    let ts_data = retry(
+        async || {
+            get(url, id_token)
+                .await
+                .context("Failed to fetch video chunk!")?
+                .bytes()
+                .await
+                .context("Failed to read video chunk!")
+        },
+        "Get chunk data",
+    )
+    .await?
+    .to_vec();
 
     // Create a local copy of the .ts file
     let mut ts_store = tokio::fs::File::create(&file_path)
