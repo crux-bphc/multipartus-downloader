@@ -17,11 +17,6 @@ enum Resolution {
 	LowRes = "LowRes",
 }
 
-type UserSettings = {
-	resolution: Resolution;
-	base: string;
-};
-
 type AppSettings = {
 	resolution: Resolution;
 	base: string | null;
@@ -31,10 +26,9 @@ type AppSettings = {
 const AUTO = "Auto";
 
 export const SettingsDialog = () => {
-
-	const [settings, setSettings] = useState<UserSettings>({
+	const [settings, setSettings] = useState<AppSettings>({
 		resolution: Resolution.HighRes,
-		base: AUTO,
+		base: null,
 	});
 
 	const [open, setOpen] = useState(false);
@@ -52,9 +46,7 @@ export const SettingsDialog = () => {
 	async function openSettings() {
 		setOpen(true);
 		try {
-			const newSettings: UserSettings = await invoke("load_settings");
-			if (newSettings.base == null) newSettings.base = AUTO;
-
+			const newSettings: AppSettings = await invoke("load_settings");
 			setSettings(newSettings);
 		} catch (e) {
 			console.error("Failed to load old settings", e);
@@ -71,11 +63,7 @@ export const SettingsDialog = () => {
 
 	async function saveSettings() {
 		try {
-
-			let actualSettings: AppSettings = { ...settings };
-			if (settings.base == AUTO) actualSettings.base = null;
-
-			await invoke("save_settings", { settings: actualSettings });
+			await invoke("save_settings", { settings });
 		} catch (e) {
 			console.error("Failed to save settings!", e);
 		}
@@ -86,7 +74,10 @@ export const SettingsDialog = () => {
 	}
 
 	async function setBase(value: string) {
-		setSettings((prev) => ({ ...prev, base: value }));
+		setSettings((prev) => ({
+			...prev,
+			base: (value == AUTO ? null : value),
+		}));
 	}
 
 	return (
@@ -102,7 +93,9 @@ export const SettingsDialog = () => {
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogPortal>
 					<DialogContent className="gap-6">
-						<DialogHeader className="text-2xl font-bold">Settings</DialogHeader>
+						<DialogHeader className="text-2xl font-bold">
+							Settings
+						</DialogHeader>
 
 						{/* Video resolution */}
 						<div className="flex items-center gap-4">
@@ -111,7 +104,8 @@ export const SettingsDialog = () => {
 								<p className="text-xs">
 									Select the resolution you want to download
 									<br />
-									High Res: <b>720p</b>, Low Res: usually <b>480p</b>
+									High Res: <b>720p</b>, Low Res: usually{" "}
+									<b>480p</b>
 								</p>
 							</div>
 							<SelectQuality
@@ -127,22 +121,31 @@ export const SettingsDialog = () => {
 								<p className="text-xs">
 									Select source to download from
 									<br />
-									<b>Auto:</b> Try downloading from fastest source
+									<b>Auto:</b>{" "}
+									Try downloading from fastest source
 									<br />
-									<b>Remote:</b> Works anywhere, might be slower
+									<b>Remote:</b>{" "}
+									Works anywhere, might be slower
 									<br />
-									<b>Local:</b> Works only on LAN and local WiFi, usually faster
+									<b>Local:</b>{" "}
+									Works only on LAN and local WiFi, usually
+									faster
 								</p>
 							</div>
 							<SelectRemotes
 								onValueChange={setBase}
-								value={settings.base}
+								value={settings.base == null
+									? AUTO
+									: settings.base}
 							/>
 						</div>
 
 						{/* Clear cache */}
 						<div className="flex gap-4">
-							<Button variant={"destructive"} onClick={clearCache}>
+							<Button
+								variant={"destructive"}
+								onClick={clearCache}
+							>
 								Clear Cache ({cacheSize})
 							</Button>
 							<p className="text-xs place-self-center">
@@ -202,14 +205,14 @@ function SelectRemotes({ ...props }: React.ComponentProps<typeof Select>) {
 				<SelectValue placeholder="Select Quality" />
 			</SelectTrigger>
 			<SelectContent>
-				{
-					bases.map(value => (
-						<SelectItem value={value} className="py-2">
-							{/* Assume https:// is remote, otherwise all links are local */}
-							{value.includes('https://') ? "(Remote) " + value : "(Local) " + value}
-						</SelectItem>
-					))
-				}
+				{bases.map((value) => (
+					<SelectItem value={value} className="py-2">
+						{/* Assume https:// is remote, otherwise all links are local */}
+						{value.includes("https://")
+							? "(Remote) " + value
+							: "(Local) " + value}
+					</SelectItem>
+				))}
 				<SelectItem value={AUTO} className="py-2">
 					Auto
 				</SelectItem>
