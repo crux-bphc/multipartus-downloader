@@ -15,7 +15,8 @@ use crate::commands::get_temp;
 // A static instance of a client, so that just one client is used for all requests
 static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 const BASE: &str = dotenvy_macro::dotenv!("BASE");
-const REMOTES: &str = dotenvy_macro::dotenv!("VITE_REMOTES");
+static REMOTES: LazyLock<Vec<&str>> =
+    LazyLock::new(|| serde_json::from_str(dotenvy_macro::dotenv!("VITE_REMOTES")).unwrap());
 static MAX_RETRY_COUNT: LazyLock<usize> =
     LazyLock::new(|| dotenvy_macro::dotenv!("MAX_RETRY_COUNT").parse().unwrap());
 
@@ -81,7 +82,7 @@ async fn retry<T, O: Future<Output = Result<T>>, F: Fn() -> O>(
 ) -> Result<T> {
     let mut error = None;
 
-    for i in 1..*MAX_RETRY_COUNT {
+    for i in 1..=*MAX_RETRY_COUNT {
         match function().await {
             Err(err) => {
                 info!(
@@ -104,8 +105,6 @@ async fn retry<T, O: Future<Output = Result<T>>, F: Fn() -> O>(
 #[instrument(fields(ttid))]
 async fn select_base<'a>(ttid: usize) -> Result<&'a str> {
     info!("Parsing remote url json for {ttid}");
-    let bases: Vec<&str> =
-        serde_json::from_str(REMOTES).context("Failed to get remote download urls!")?;
 
     info!("Finding fastest remote url for {ttid}");
     // Pick the fastest server to download from
@@ -114,7 +113,7 @@ async fn select_base<'a>(ttid: usize) -> Result<&'a str> {
     let mut failed = true;
 
     let mut set = JoinSet::new();
-    for base in bases {
+    for base in REMOTES.iter() {
         set.spawn(async move { (check_available(base).await, base) });
     }
 

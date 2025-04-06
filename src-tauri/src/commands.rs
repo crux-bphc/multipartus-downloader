@@ -266,9 +266,9 @@ pub fn get_cache_size() -> Result<String, String> {
     let temp = get_temp();
     if !temp.exists() {
         info!("Temp file for multipartus-downloader does not exist");
-        return Ok("0K".to_string());
+        return Ok("0KiB".to_string());
     }
-    dir_size::get_size_in_abbr_human_bytes(temp.as_path())
+    dir_size::get_size_in_human_bytes(temp.as_path())
         .inspect_err(|e| error!("failed getting temp dir size: {e}"))
         .context("getting temp dir size")
         .map_err(|e| e.to_string())
