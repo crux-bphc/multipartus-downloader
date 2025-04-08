@@ -2,6 +2,7 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 mod commands;
+pub mod prelude;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

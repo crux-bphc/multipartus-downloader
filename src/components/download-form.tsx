@@ -64,15 +64,21 @@ const DownloadButton = () => {
 
 		const token = await logtoClient.getIdToken();
 		setOpen(true);
+
 		// Use base folder instead of adding temp, since the temp file is chosen to be the default temp
 		// file of the operating system.
-		await invoke("download", {
-			token,
-			folder: baseFolder,
-			videos: selectedVideos,
-			onProgress,
-			onError,
-		});
+		try {
+			await invoke("download", {
+				token,
+				folder: baseFolder,
+				videos: selectedVideos,
+				onProgress,
+				onError,
+			});	
+		} catch (error) {
+			console.error("Download error: ", error);
+			setErrors(prevErrors => [...prevErrors, ["An unexpected error occured while downloading", `${error}`]])
+		}
 		setComplete(true);
 	}
 
