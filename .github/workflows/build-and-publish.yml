@@ -62,13 +62,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Make .env file
-        uses: SpicyPizza/create-envfile@v2.0
-        with:
-          envkey_BASE: "https://lex.crux-bphc.com/api"
-          envkey_VITE_LOGTO_ENDPOINT: ${{ secrets.VITE_LOGTO_ENDPOINT }}
-          envkey_VITE_LOGTO_APP_ID: ${{ secrets.VITE_LOGTO_APP_ID }}
-
       - name: setup bun
         uses: oven-sh/setup-bun@v2
         with:
