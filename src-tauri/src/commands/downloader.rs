@@ -123,7 +123,9 @@ async fn select_base<'a>(ttid: usize) -> Result<&'a str> {
             Ok((is_available, base)) => {
                 failed = !is_available;
                 set_base = base;
-                break;
+                if is_available {
+                    break;
+                }
             }
 
             Err(_) => failed = true,
