@@ -26,7 +26,7 @@ const sidecarDirectory = join(
 await mkdir(sidecarDirectory, { recursive: true });
 
 async function download(targetTriple: keyof typeof binaries) {
-	const target = join(sidecarDirectory, `ffmpeg-${targetTriple}`);
+	const target = join(sidecarDirectory, `multipartus-ffmpeg-${targetTriple}`);
 	if (await Bun.file(target).exists()) return;
 
 	try {

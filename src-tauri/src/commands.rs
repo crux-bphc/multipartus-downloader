@@ -131,7 +131,7 @@ async fn download_mp4(
 
     let ffmpeg = app
         .shell()
-        .sidecar("ffmpeg")
+        .sidecar("multipartus-ffmpeg")
         .context("ffmpeg command create")
         .map_err(|e| (video.number, e.to_string()))?;
 
