@@ -17,6 +17,7 @@ import {
 } from "./ui/dialog";
 import { Progress } from "./ui/progress";
 import { MasterSelects, VideoSelector } from "./video-selector";
+import { LoadingDots } from "./ui/load-dots";
 
 type DownloadProgressEvent = {
 	percent: number;
@@ -36,7 +37,6 @@ const DownloadButton = () => {
 	const [progressPercentage, setProgressPercentage] = useState(0);
 	const [errors, setErrors] = useState<[string, string][]>([]);
 	const [complete, setComplete] = useState(false);
-	const [loadingDots, setLoadingDots] = useState("");
 
 	const onProgress = new Channel<DownloadProgressEvent>();
 	onProgress.onmessage = (message) => setProgressPercentage(message?.percent);
@@ -82,19 +82,6 @@ const DownloadButton = () => {
 		setComplete(true);
 	}
 
-	useEffect(() => {
-		if (complete) {
-			setLoadingDots("");
-			return;
-		}
-
-		const interval = setInterval(() => {
-			setLoadingDots((prev) => (prev.length >= 3 ? "" : `${prev}.`));
-		}, 300);
-
-		return () => clearInterval(interval);
-	}, [complete]);
-
 	return (
 		<Dialog open={open} onOpenChange={openable}>
 			<Button disabled={selectedVideos.length === 0} onClick={handleClick}>
@@ -108,7 +95,7 @@ const DownloadButton = () => {
 							? "Some Lecture Downloads Failed!"
 							: "Lecture Downloads Complete!"
 						: "Downloading Your Lectures"}
-					<span>{loadingDots}</span>
+					<LoadingDots end={complete}></LoadingDots>
 				</DialogTitle>
 				<DialogDescription>
 					{progressPercentage.toFixed(1)}% Complete
