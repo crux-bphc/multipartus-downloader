@@ -9,6 +9,7 @@ import {
 	useState,
 } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 
 export const logtoClient = new LogtoClient({
 	endpoint: import.meta.env.VITE_LOGTO_ENDPOINT,
@@ -43,7 +44,10 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 	}
 
 	useEffect(() => {
-		updateAuthState();
+		toast.info("Attempting to login automatically...");
+		updateAuthState().catch(() => {
+			toast.error("Failed to login automatically!");
+		});
 	}, []);
 
 	useEffect(() => {
