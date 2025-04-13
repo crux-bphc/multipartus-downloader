@@ -94,8 +94,8 @@ const DownloadButton = () => {
 						? errors.length > 0
 							? "Some Lecture Downloads Failed!"
 							: "Lecture Downloads Complete!"
-						: "Downloading Your Lectures"}
-					<LoadingDots end={complete}></LoadingDots>
+						: <>Downloading Your Lectures<LoadingDots /></>}
+					
 				</DialogTitle>
 				<DialogDescription>
 					{progressPercentage.toFixed(1)}% Complete

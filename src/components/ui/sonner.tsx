@@ -10,7 +10,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       toastOptions={{
         classNames: {
-          error: "group error !border-destructive !bg-destructive/60",
+          error: "group error !border-destructive !bg-destructive-half",
           icon: "group-[.error]:!text-red-600",
           title: "group-[.error]:!text-red-300"
         }

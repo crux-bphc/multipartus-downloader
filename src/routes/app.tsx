@@ -111,7 +111,7 @@ const NetworkError = ({ refresh }: { refresh: () => void }) => {
 const Loading = () => {
 	return (
         <div className="flex justify-center items-center h-screen">
-            <span className="-ml-4 text-3xl font-extrabold">LOADING<LoadingDots end={false}></LoadingDots></span>
+            <span className="-ml-4 text-3xl font-extrabold">LOADING<LoadingDots /></span>
         </div>
 	);
 }
