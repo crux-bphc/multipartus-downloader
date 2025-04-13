@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "multipartus-downloader",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "identifier": "com.crux-bphc.multipartus-downloader",
   "build": {
     "beforeDevCommand": "bun run dev",
