@@ -44,8 +44,14 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 	}
 
 	useEffect(() => {
-		updateAuthState().catch(() => {
-			// would this make sense?
+		toast.info("Attempting to login automatically...");
+		updateAuthState()
+		.then(() => {
+			if (!isAuthenticated) {
+				toast.error("You have not logged in yet. Please log in manually");
+			}
+		})
+		.catch(() => {
 			toast.error("Failed to login automatically!");
 		});
 	}, []);

@@ -60,6 +60,7 @@ function LoginButton() {
 				</>
 			}
 		</Button>
+		<Toaster />
 		</>
 	);
 }

@@ -9,6 +9,7 @@ import { atomWithRefresh } from "jotai/utils";
 import { RefreshCwIcon } from "lucide-react";
 import { Suspense } from "react";
 import React, { ReactNode } from 'react';
+import { Toaster } from "@/components/ui/sonner";
 
 interface ErrorBoundaryProps {
 	children: ReactNode;
@@ -54,6 +55,7 @@ const DownloadPageRoot = () => {
 				<>
 					<SettingsDialog />
 					<DownloadForm />
+					<Toaster />
 				</>
 			) : (
 				<div className="flex flex-col gap-6 justify-center items-center h-screen text-center">
