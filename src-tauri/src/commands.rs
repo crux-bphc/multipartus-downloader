@@ -43,7 +43,8 @@ pub struct Settings {
 fn remove_special(string: impl AsRef<str>) -> String {
     string
         .as_ref()
-        .replace(['/', '|'], "-")
+        .replace(['/', '|', '\\'], "-")
+        .replace(['\t', '\n', '\r'], " ")
         .chars()
         .filter(|c| c.is_alphanumeric() || c.is_whitespace() || c == &'_' || c == &'.')
         .collect()
@@ -122,7 +123,6 @@ async fn download_mp4(
         video_file,
     )
     .await
-    .with_context(|| format!("downloading playlist: {}", video.number))
     .map_err(|e| (video.number, e.to_string()))?;
 
     info!("m3u8 playlist download complete");
