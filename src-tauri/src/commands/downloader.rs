@@ -12,6 +12,8 @@ use std::sync::LazyLock;
 
 use crate::commands::get_temp;
 
+use super::Settings;
+
 // A static instance of a client, so that just one client is used for all requests
 static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 const BASE: &str = dotenvy_macro::dotenv!("BASE");
@@ -148,13 +150,16 @@ async fn select_base<'a>(ttid: usize) -> Result<&'a str> {
 
 /// Creates an m3u8 file referencing local unencrypted .ts files
 pub async fn download_playlist(
-    resolution: Resolution,
-    base: Arc<Option<String>>,
+    settings: Arc<Settings>,
     tx: tokio::sync::watch::Sender<f32>,
     id_token: &str,
     ttid: usize,
     filename: &str,
 ) -> Result<(String, Option<String>)> {
+    let Settings {
+        resolution, base, ..
+    } = &*settings;
+
     // If a base has been dictated by settings
     let download_base = if let Some(base) = base.as_ref() {
         info!("Using {base} as per download settings to download from");

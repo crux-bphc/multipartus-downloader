@@ -11,6 +11,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
+import Tooltip from "./ui/tooltip";
 
 enum Resolution {
 	HighRes = "HighRes",
@@ -20,6 +21,7 @@ enum Resolution {
 type AppSettings = {
 	resolution: Resolution;
 	base: string | null;
+	format: string | null;
 };
 
 // Select remote automatically
@@ -29,10 +31,11 @@ export const SettingsDialog = () => {
 	const [settings, setSettings] = useState<AppSettings>({
 		resolution: Resolution.HighRes,
 		base: null,
+		format: null,
 	});
 
 	const [open, setOpen] = useState(false);
-	const [cacheSize, setCacheSize] = useState("0.0G");
+	const [cacheSize, setCacheSize] = useState("0.0KiB");
 
 	async function computeCache() {
 		try {
@@ -73,6 +76,10 @@ export const SettingsDialog = () => {
 		setSettings((prev) => ({ ...prev, resolution: value }));
 	}
 
+	async function setFormat(value: string) {
+		setSettings((prev) => ({ ...prev, format: (value.trim().length === 0 ? null : value) }));
+	}
+
 	async function setBase(value: string) {
 		setSettings((prev) => ({
 			...prev,
@@ -92,30 +99,29 @@ export const SettingsDialog = () => {
 			</Button>
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogPortal>
-					<DialogContent className="gap-6" aria-describedby={undefined}>
-						<DialogTitle className="text-2xl font-bold">
+					<DialogContent className="p-0" aria-describedby={undefined}>
+						<DialogTitle className="text-2xl font-bold px-6 mt-6">
 							Settings
 						</DialogTitle>
-
+						<div className="flex flex-col gap-6 max-h-80 overflow-auto relative pb-2 px-6">
 						{/* Video resolution */}
-						<div className="flex items-center gap-4">
+						<div className="flex flex-row items-center gap-4 justify-between">
 							<div>
 								<b>Video Quality</b>
 								<p className="text-xs">
-									Select the resolution you want to download
+									Select download resolution
 									<br />
-									High Res: <b>720p</b>, Low Res: usually{" "}
-									<b>480p</b>
+									High Res: <b>720p</b>, Low Res: usually <b>480p</b>
 								</p>
 							</div>
 							<SelectQuality
-								onValueChange={setResolution}
-								value={settings.resolution}
-							/>
+									onValueChange={setResolution}
+									value={settings.resolution}
+								/>
 						</div>
 
 						{/* Remote */}
-						<div className="flex items-center gap-4">
+						<div className="flex items-center gap-4 justify-between">
 							<div>
 								<b>Download Source</b>
 								<p className="text-xs">
@@ -140,6 +146,22 @@ export const SettingsDialog = () => {
 							/>
 						</div>
 
+						<div className="flex flex-col items-center gap-4">
+							<div className="place-self-start">
+								<b>Format</b>
+								<p className="text-xs">
+									Select the format you want the downloads to be in
+									<br />
+									Available format specifiers:  <span className="font-mono">
+										<Tooltip content={"The name of the lecture"} ><span className="underline">{"{topic}"}</span></Tooltip>, <Tooltip content={"The lecture number"} ><span className="underline">{"{number}"}</span></Tooltip>, <Tooltip content={"The date when the lecture was taken"} ><span className="underline">{"{date}"}</span></Tooltip>, <Tooltip content={"The resolution of the lecture (high_res / low_res)"} ><span className="underline">{"{resolution}"}</span></Tooltip>
+									</span>
+									<br />
+									Keep empty to use the default download format
+								</p>
+							</div>
+							<input type="text" placeholder="Enter format specifier" className="border-2 rounded py-2 px-3 outline-0 w-full text-sm" value={settings.format ?? ""}  onInput={(e) => setFormat(e.currentTarget.value)}/> 
+						</div>
+
 						{/* Clear cache */}
 						<div className="flex gap-4">
 							<Button
@@ -152,8 +174,8 @@ export const SettingsDialog = () => {
 								Clears the cache in your temporary storage
 							</p>
 						</div>
-
-						<div className="flex gap-4">
+						</div>
+						<div className="flex gap-4 w-full px-6 pb-6">
 							<Button
 								className="flex-1"
 								onClick={() => {
@@ -181,7 +203,7 @@ export const SettingsDialog = () => {
 function SelectQuality({ ...props }: React.ComponentProps<typeof Select>) {
 	return (
 		<Select {...props}>
-			<SelectTrigger className="text-nowrap w-42 h-10 select-none py-2 place-self-center border-2">
+			<SelectTrigger className="text-nowrap w-48 h-10 select-none py-2 place-self-center border-2 ">
 				<SelectValue placeholder="Select Quality" />
 			</SelectTrigger>
 			<SelectContent>
