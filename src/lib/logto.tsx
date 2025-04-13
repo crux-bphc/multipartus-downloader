@@ -43,16 +43,11 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 		}
 	}
 
-	let logged_in: string | number = "";
-
+	let loggedIn: string | number = "";
+	let autoLogin = true;
 	useEffect(() => {
-		logged_in = toast.info("Attempting to login automatically...");
+		loggedIn = toast.info("Attempting to login automatically...");
 		updateAuthState()
-		.then(() => {
-			if (isAuthenticated === false) {
-				toast.error("You have not logged in yet. Please log in manually");
-			}
-		})
 		.catch(() => {
 			toast.error("Failed to login automatically!");
 		});
@@ -61,8 +56,12 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 	useEffect(() => {
 		if (isAuthenticated) {
 			navigate("/app");
-			toast.dismiss(logged_in);
+			toast.dismiss(loggedIn);
 		} else {
+			if (autoLogin && isAuthenticated === false) {
+				toast.error("You have not logged in yet. Please log in manually");
+				autoLogin = false;
+			}
 			navigate("/");
 		}
 	}, [isAuthenticated, navigate]);
