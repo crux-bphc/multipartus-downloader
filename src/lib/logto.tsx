@@ -31,7 +31,7 @@ const LogtoContext = createContext<{
 });
 
 export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
-	const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+	const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 	const navigate = useNavigate();
 
 	async function updateAuthState() {
@@ -43,11 +43,13 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 		}
 	}
 
+	let logged_in: string | number = "";
+
 	useEffect(() => {
-		toast.info("Attempting to login automatically...");
+		logged_in = toast.info("Attempting to login automatically...");
 		updateAuthState()
 		.then(() => {
-			if (!isAuthenticated) {
+			if (isAuthenticated === false) {
 				toast.error("You have not logged in yet. Please log in manually");
 			}
 		})
@@ -59,13 +61,14 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 	useEffect(() => {
 		if (isAuthenticated) {
 			navigate("/app");
+			toast.dismiss(logged_in);
 		} else {
 			navigate("/");
 		}
 	}, [isAuthenticated, navigate]);
 
 	return (
-		<LogtoContext.Provider value={{ isAuthenticated, updateAuthState }}>
+		<LogtoContext.Provider value={{ isAuthenticated: isAuthenticated ?? false, updateAuthState }}>
 			{children}
 		</LogtoContext.Provider>
 	);

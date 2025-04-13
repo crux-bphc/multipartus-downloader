@@ -1,3 +1,4 @@
+import { Toaster } from "@/components/ui/sonner";
 import { LogtoProvider } from "@/lib/logto";
 import { Provider } from "jotai";
 import { Suspense } from "react";
@@ -9,6 +10,7 @@ export const AppLayout = () => {
 			<Suspense>
 				<LogtoProvider>
 					<Outlet />
+					<Toaster />
 				</LogtoProvider>
 			</Suspense>
 		</Provider>

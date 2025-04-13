@@ -3,7 +3,6 @@ import { LoadingDots } from "@/components/ui/load-dots";
 import { logtoClient, useLogto } from "@/lib/logto";
 import { onUrl, start } from "@fabianlars/tauri-plugin-oauth";
 import { useState } from "react";
-import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 
 function LoginButton() {
@@ -60,7 +59,6 @@ function LoginButton() {
 				</>
 			}
 		</Button>
-		<Toaster />
 		</>
 	);
 }
