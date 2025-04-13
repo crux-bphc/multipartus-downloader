@@ -8,10 +8,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      position="bottom-left"
+      visibleToasts={1}
       toastOptions={{
         classNames: {
           error: "group error !border-destructive !bg-destructive-half",
-          icon: "group-[.error]:!text-red-600",
+          success: "group success !border-primary/40",
+          icon: "group-[.error]:!text-red-600 group-[.success]:!text-primary",
           title: "group-[.error]:!text-red-300"
         }
       }}

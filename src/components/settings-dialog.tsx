@@ -12,6 +12,7 @@ import {
 	SelectValue,
 } from "./ui/select";
 import Tooltip from "./ui/tooltip";
+import { toast } from "sonner";
 
 enum Resolution {
 	HighRes = "HighRes",
@@ -67,9 +68,24 @@ export const SettingsDialog = () => {
 	async function saveSettings() {
 		try {
 			await invoke("save_settings", { settings });
+			toast.success("Saved settings successfully!");
 		} catch (e) {
+			toast.error("Failed to save settings due to an error! Please try again later.");
 			console.error("Failed to save settings!", e);
 		}
+	}
+
+	async function saveClick() {
+		let formats = ["{topic}", "{number}", "{date}"];
+
+		if (settings.format != null && !formats.some(format => settings.format!.includes(format))) {
+			toast.error("Format must include at least one of the following specifiers: " + formats.join(", "));
+			setOpen(true);
+			return;
+		}
+		
+		await saveSettings();
+		setOpen(false);
 	}
 
 	async function setResolution(value: Resolution) {
@@ -155,6 +171,8 @@ export const SettingsDialog = () => {
 									Available format specifiers:  <span className="font-mono">
 										<Tooltip content={"The name of the lecture"} ><span className="underline">{"{topic}"}</span></Tooltip>, <Tooltip content={"The lecture number"} ><span className="underline">{"{number}"}</span></Tooltip>, <Tooltip content={"The date when the lecture was taken"} ><span className="underline">{"{date}"}</span></Tooltip>, <Tooltip content={"The resolution of the lecture (high_res / low_res)"} ><span className="underline">{"{resolution}"}</span></Tooltip>
 									</span>
+									<br/>
+										For example, you would use: <span className="font-mono">{"{number}_{topic}_{resolution}"}</span> to download in the default format
 									<br />
 									Keep empty to use the default download format
 								</p>
@@ -178,10 +196,7 @@ export const SettingsDialog = () => {
 						<div className="flex gap-4 w-full px-6 pb-6">
 							<Button
 								className="flex-1"
-								onClick={() => {
-									saveSettings();
-									setOpen(false);
-								}}
+								onClick={() => saveClick()}
 							>
 								Save
 							</Button>
