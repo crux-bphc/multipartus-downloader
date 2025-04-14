@@ -13,6 +13,16 @@ A clear and concise description of what the bug is.
 
 ## To Reproduce
 
+NOTE: Before opening a bug report, make sure that it is reproducible on a fresh install. 
+
+This involves:
+- Uninstalling the application
+- Deleting the `com.crux-bphc.multipartus-downloader` directories for app data and cache, which are located in:
+   - `C://Users/<username>/AppData/Local` on Windows
+   - `~/.local/share` & `~/.cache` on Linux
+   - `Library/Application Support` & `Library/Caches` on Mac
+- Installing the latest release
+
 Steps to reproduce the behavior:
 1. Go to '...'
 2. Click on '....'
