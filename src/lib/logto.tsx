@@ -1,4 +1,5 @@
 import LogtoClient, { createRequester, Prompt } from "@logto/browser";
+import { invoke } from "@tauri-apps/api/core";
 import { fetch } from "@tauri-apps/plugin-http";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -48,8 +49,9 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 	useEffect(() => {
 		loggedIn = toast.info("Attempting to login automatically...");
 		updateAuthState()
-		.catch(() => {
+		.catch((e) => {
 			toast.error("Failed to login automatically!");
+			invoke('log_error',{ error: `Failed to login automatically ${e}` });
 		});
 	}, []);
 

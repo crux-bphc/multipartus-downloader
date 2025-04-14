@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { LoadingDots } from "@/components/ui/load-dots";
 import { fetchLex } from "@/lib/lex";
+import { invoke } from "@tauri-apps/api/core";
 import { useAtom } from "jotai";
 import { atomWithRefresh } from "jotai/utils";
 import { RefreshCwIcon } from "lucide-react";
@@ -25,7 +26,8 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 		this.state = { hasError: false };
 	}
 
-	static getDerivedStateFromError(_: Error): ErrorBoundaryState {
+	static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+	    invoke('log_error',{ error: `An error occurred in the application: ${error.message} due to ${error.cause} with name ${error.name} at ${error.stack}` });
 		return { hasError: true };
 	}
 

@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingDots } from "@/components/ui/load-dots";
 import { logtoClient, useLogto } from "@/lib/logto";
 import { onUrl, start } from "@fabianlars/tauri-plugin-oauth";
+import { invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -34,6 +35,7 @@ function LoginButton() {
 			setFailed(true);
 			setLoading(false);
 			toast.error("Login failed! Please try again later.");
+			invoke('log_error', { error: `Failed to login! ${error}`});
 		}
 	}
 

@@ -48,7 +48,7 @@ export const SettingsDialog = () => {
 	}
 
 	async function openSettings() {
-		setOpen(true);
+		setOpen(true);		
 		try {
 			const newSettings: AppSettings = await invoke("load_settings");
 			setSettings(newSettings);

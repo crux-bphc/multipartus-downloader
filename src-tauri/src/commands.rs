@@ -392,6 +392,13 @@ pub async fn load_settings(app: AppHandle) -> Result<Settings, String> {
 }
 
 #[tauri::command]
+#[instrument(skip_all)]
+pub fn log_error(error: String) -> Result<(), String> {
+    error!("Front end error: {}", error);
+    Ok(())
+}
+
+#[tauri::command]
 #[instrument(fields(token, folder), skip_all)]
 pub async fn download(
     cancellation_token: State<'_, Mutex<CancellationToken>>,
