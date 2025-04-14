@@ -76,7 +76,7 @@ export const SettingsDialog = () => {
 	}
 
 	async function saveClick() {
-		let formats = ["{topic}", "{number}", "{date}"];
+		let formats = ["{number}", "{date}"];
 
 		if (settings.format != null && !formats.some(format => settings.format!.includes(format))) {
 			toast.error("Format must include at least one of the following specifiers: " + formats.join(", "));

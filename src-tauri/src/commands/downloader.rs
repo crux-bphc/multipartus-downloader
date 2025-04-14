@@ -23,13 +23,15 @@ static MAX_RETRY_COUNT: LazyLock<usize> =
     LazyLock::new(|| dotenvy_macro::dotenv!("MAX_RETRY_COUNT").parse().unwrap());
 
 /// References static client to perform a GET request with the token auth header
-async fn get(url: &str, id_token: &str) -> Result<reqwest::Response> {
+async fn get(url: &str, id_token: &str, failiure_message: &str) -> Result<reqwest::Response> {
     CLIENT
         .get(url)
+        // If the request does not recieve any data within 30s, it fails
+        .timeout(Duration::new(30, 0))
         .header(reqwest::header::AUTHORIZATION, format!("Bearer {id_token}"))
         .send()
         .await
-        .context(format!("Failed to GET data from url \"{url}\"!"))
+        .context(format!("Connection timed out when attempting to GET data from URL \"{url}\"!\n{failiure_message}"))
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
@@ -138,7 +140,7 @@ async fn select_base<'a>(ttid: usize) -> Result<&'a str> {
     // Or should it try connecting to the default server again - waiting as long as it takes?
     if failed {
         return Err(anyhow::Error::msg(
-            "Failed to connect to any hosts! Check your connection and try again.",
+            "Failed to connect to any available download sources! Check your connection and try again.",
         ));
     }
 
@@ -162,15 +164,20 @@ pub async fn download_playlist(
 
     // If a base has been dictated by settings
     let download_base = if let Some(base) = base.as_ref() {
-        info!("Using {base} as per download settings to download from");
-        base.as_str()
+        info!("Using download source {base} from user settings");
+        if check_available(base).await {
+            base.as_str()
+        } else {
+            error!("Failed to connect to base {base}");
+            return Err(anyhow::Error::msg(format!("Failed to connect to download source `{base}`! Check your connection and try again, or try to a different download source.")));
+        }
     } else {
         retry(async || select_base(ttid).await, "select_base").await?
     };
 
     info!("Selected remote: {download_base} for {ttid}");
 
-    // {temp}/multipartus-downloader/Lecture_<lecture-ttid>
+    // {temp}/multipartus-downloader/videos/Lecture_<lecture-ttid>
     let temp_location = get_temp().join(format!("Lecture_{ttid}"));
 
     let temp = temp_location.as_path().to_str().unwrap_or("./tmp");
@@ -198,9 +205,8 @@ pub async fn download_playlist(
     // Get impartus .m3u8 file
     let m3u8_index_bytes = retry(
         async || {
-            get(&m3u8_info, id_token)
-                .await
-                .context("Failed to fetch index playlist file!")?
+            get(&m3u8_info, id_token, "Failed to fetch index playlist file!")
+                .await?
                 .bytes()
                 .await
                 .context("Failed to read contents of playlist info file!")
@@ -216,7 +222,6 @@ pub async fn download_playlist(
 
     info!("Finished parsing playlist json file for {ttid}");
 
-    // TODO: Use second url in conjuction with local / online bases depending on connectivity
     // Select the correct resolution
     let selected_m3u8 = {
         let address = if let Resolution::HighRes = resolution {
@@ -245,9 +250,8 @@ pub async fn download_playlist(
     // Get .m3u8 file that contains the video chunks
     let m3u8_in_text = retry(
         async || {
-            get(&selected_m3u8, id_token)
-                .await
-                .context("Failed to fetch playlist file!")?
+            get(&selected_m3u8, id_token, "Failed to fetch playlist file!")
+                .await?
                 .text()
                 .await
                 .context("Failed to read contents of playlist file!")
@@ -261,9 +265,8 @@ pub async fn download_playlist(
     // get impartus key
     let key = retry(
         async || {
-            get(&key_url, id_token)
-                .await
-                .context("Failed to fetch key!")?
+            get(&key_url, id_token, "Failed to fetch key!")
+                .await?
                 .bytes()
                 .await
                 .context("Failed to read key!")
@@ -448,9 +451,8 @@ async fn write_m3u8(filepath: &String, out: String) -> Result<()> {
 async fn download_ts_file(file_path: &str, id_token: &str, url: &str) -> Result<()> {
     let ts_data = retry(
         async || {
-            get(url, id_token)
-                .await
-                .context("Failed to fetch video chunk!")?
+            get(url, id_token, "Failed to fetch video chunk!")
+                .await?
                 .bytes()
                 .await
                 .context("Failed to read video chunk!")

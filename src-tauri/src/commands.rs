@@ -78,10 +78,12 @@ async fn download_mp4(
     } = &*settings;
 
     let cleaned_topic = remove_special(&video.topic);
+
+    let default_video_file = format!("{}_{cleaned_topic}_{resolution}", video.number);
     
     let video_file = if let Some(format) = format {
         // A naive way to do this, but it works for now
-        remove_special(
+        &remove_special(
             &format
                 .replace("{topic}", &cleaned_topic)
                 .replace("{number}", &video.number.to_string())
@@ -89,7 +91,7 @@ async fn download_mp4(
                 .replace("{date}", &video.start_time),
         )
     } else {
-        format!("{}_{cleaned_topic}_{resolution}", video.number)
+        &default_video_file
     };
 
     info!("download_mp4 invoked: Generating video_file name: {video_file}");
@@ -142,7 +144,7 @@ async fn download_mp4(
 
     info!("Starting download of m3u8 playlist");
 
-    let (side1, side2) = download_playlist(settings, itx, &token, video.ttid as usize, &video_file)
+    let (side1, side2) = download_playlist(settings, itx, &token, video.ttid as usize, &default_video_file)
         .await
         .map_err(|e| (video.number, e.to_string()))?;
 
@@ -349,7 +351,7 @@ async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
         .context("reading app data dir path")
         .map_err(|e| e.to_string())?;
 
-    let out = serde_json::from_slice(
+    let mut out: Settings = serde_json::from_slice(
         tokio::fs::read(app_data.join("settings.json"))
             .await
             .context("reading settings.json")
@@ -359,6 +361,14 @@ async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
     .context("deserializing settings.json")
     .map_err(|e| e.to_string())?;
 
+    if let Some(format) = &out.format {
+        let formats = ["{number}", "{date}"];
+        if !formats.iter().any(|f| format.contains(f)) {
+            info!("Format has been tampered with manually, and is invalid. Using default format.");
+            out.format = None;
+        };
+    }
+    
     info!("Settings loaded");
 
     Ok(out)

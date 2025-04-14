@@ -38,7 +38,6 @@ function LoginButton() {
 	}
 
 	return (
-		<>
 		<Button onClick={handleLogin} size="lg" type="button" className="w-56">
 			{loading ?
 				<div className="flex -ml-4">Loading<div className="inline-block"><LoadingDots /></div></div> : 
@@ -59,7 +58,6 @@ function LoginButton() {
 				</>
 			}
 		</Button>
-		</>
 	);
 }
 
