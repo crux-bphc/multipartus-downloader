@@ -80,7 +80,7 @@ async fn download_mp4(
     let cleaned_topic = remove_special(&video.topic);
 
     let default_video_file = format!("{}_{cleaned_topic}_{resolution}", video.number);
-    
+
     let video_file = if let Some(format) = format {
         // A naive way to do this, but it works for now
         &remove_special(
@@ -144,9 +144,15 @@ async fn download_mp4(
 
     info!("Starting download of m3u8 playlist");
 
-    let (side1, side2) = download_playlist(settings, itx, &token, video.ttid as usize, &default_video_file)
-        .await
-        .map_err(|e| (video.number, e.to_string()))?;
+    let (side1, side2) = download_playlist(
+        settings,
+        itx,
+        &token,
+        video.ttid as usize,
+        &default_video_file,
+    )
+    .await
+    .map_err(|e| (video.number, e.to_string()))?;
 
     info!("m3u8 playlist download complete");
 
@@ -168,16 +174,19 @@ async fn download_mp4(
     let mut args = vec![
         "-allowed_extensions",
         "ALL",
+        "-nostdin", // Prevent ffmpeg from pausing for user input
         "-i",
         &side1,
         "-c",
         "copy",
         location_str,
     ];
+
     if let Some(side2) = &side2 {
         args = vec![
             "-allowed_extensions",
             "ALL",
+            "-nostdin",
             "-i",
             &side1,
             "-allowed_extensions",
@@ -192,6 +201,17 @@ async fn download_mp4(
             "copy",
             location_str,
         ]
+    }
+
+    info!("Checking again if the file exists");
+
+    // Throw an error now if the file has been created between download and ffmpeg spawn
+    if location.exists() {
+        error!("The file `{location_str}` already exists! It was likely created or moved into the directory when the download operation started.");
+        return Err((
+            video.number,
+            format!("The file at `{location_str}` already exists!"),
+        ));
     }
 
     info!("Spawning ffmpeg");
@@ -368,7 +388,7 @@ async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
             out.format = None;
         };
     }
-    
+
     info!("Settings loaded");
 
     Ok(out)
