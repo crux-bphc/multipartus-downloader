@@ -20,6 +20,7 @@ pub fn run() {
             commands::get_cache_size,
             commands::save_settings,
             commands::load_settings,
+            commands::log_error,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

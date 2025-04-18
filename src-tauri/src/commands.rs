@@ -22,6 +22,7 @@ pub struct Video {
     topic: String,
     subject_name: String,
     number: i32,
+    start_time: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -38,22 +39,33 @@ pub struct DownloadErrorEvent {
 pub struct Settings {
     resolution: Resolution,
     base: Option<String>,
+    format: Option<String>,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            resolution: Resolution::HighRes,
+            base: None,
+            format: None,
+        }
+    }
 }
 
 fn remove_special(string: impl AsRef<str>) -> String {
     string
         .as_ref()
-        .replace(['/', '|'], "-")
+        .replace(['/', '|', '\\'], "-")
+        .replace(['\t', '\n', '\r'], " ")
         .chars()
-        .filter(|c| c.is_alphanumeric() || c.is_whitespace() || c == &'_' || c == &'.')
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace() || c == &'_' || c == &'-' || c == &'.')
         .collect()
 }
 
 // TODO: Improve error handling
-#[instrument(fields(nth, ?video, %token, %folder, ?resolution), skip_all)]
+#[instrument(fields(nth, ?video, %token, %folder, ?settings), skip_all)]
 async fn download_mp4(
-    resolution: Resolution,
-    base: Arc<Option<String>>,
+    settings: Arc<Settings>,
     nth: usize,
     tx: Arc<mpsc::Sender<(usize, f32)>>,
     video: &Video,
@@ -61,9 +73,28 @@ async fn download_mp4(
     folder: Arc<String>,
     app: Arc<AppHandle>,
 ) -> Result<i32, (i32, String)> {
-    let video_file = &format!("{}_{}", video.number, remove_special(&video.topic));
+    let Settings {
+        resolution, format, ..
+    } = &*settings;
 
-    info!("download_mp4 invoked");
+    let cleaned_topic = remove_special(&video.topic);
+
+    let default_video_file = format!("{}_{cleaned_topic}_{resolution}", video.number);
+
+    let video_file = if let Some(format) = format {
+        // A naive way to do this, but it works for now
+        &remove_special(
+            &format
+                .replace("{topic}", &cleaned_topic)
+                .replace("{number}", &video.number.to_string())
+                .replace("{resolution}", &resolution.to_string())
+                .replace("{date}", &video.start_time),
+        )
+    } else {
+        &default_video_file
+    };
+
+    info!("download_mp4 invoked: Generating video_file name: {video_file}");
 
     let (itx, mut irx) = tokio::sync::watch::channel(0f32);
 
@@ -102,7 +133,7 @@ async fn download_mp4(
         .context("creating subject download location")
         .map_err(|e| (video.number, e.to_string()))?;
 
-    location.push(format!("{video_file}_{resolution}.mp4"));
+    location.push(format!("{video_file}.mp4"));
 
     // Skip this download if it exists
     if location.exists() {
@@ -114,15 +145,13 @@ async fn download_mp4(
     info!("Starting download of m3u8 playlist");
 
     let (side1, side2) = download_playlist(
-        resolution,
-        base,
+        settings,
         itx,
         &token,
         video.ttid as usize,
-        video_file,
+        &default_video_file,
     )
     .await
-    .with_context(|| format!("downloading playlist: {}", video.number))
     .map_err(|e| (video.number, e.to_string()))?;
 
     info!("m3u8 playlist download complete");
@@ -145,16 +174,19 @@ async fn download_mp4(
     let mut args = vec![
         "-allowed_extensions",
         "ALL",
+        "-nostdin", // Prevent ffmpeg from pausing for user input
         "-i",
         &side1,
         "-c",
         "copy",
         location_str,
     ];
+
     if let Some(side2) = &side2 {
         args = vec![
             "-allowed_extensions",
             "ALL",
+            "-nostdin",
             "-i",
             &side1,
             "-allowed_extensions",
@@ -169,6 +201,17 @@ async fn download_mp4(
             "copy",
             location_str,
         ]
+    }
+
+    info!("Checking again if the file exists");
+
+    // Throw an error now if the file has been created between download and ffmpeg spawn
+    if location.exists() {
+        error!("The file `{location_str}` already exists! It was likely created or moved into the directory when the download operation started.");
+        return Err((
+            video.number,
+            format!("The file at `{location_str}` already exists!"),
+        ));
     }
 
     info!("Spawning ffmpeg");
@@ -328,7 +371,7 @@ async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
         .context("reading app data dir path")
         .map_err(|e| e.to_string())?;
 
-    let out = serde_json::from_slice(
+    let mut out: Settings = serde_json::from_slice(
         tokio::fs::read(app_data.join("settings.json"))
             .await
             .context("reading settings.json")
@@ -338,18 +381,26 @@ async fn get_settings(app: &AppHandle) -> Result<Settings, String> {
     .context("deserializing settings.json")
     .map_err(|e| e.to_string())?;
 
+    if let Some(format) = &out.format {
+        let formats = ["{number}", "{date}"];
+        if !formats.iter().any(|f| format.contains(f)) {
+            info!("Format has been tampered with manually, and is invalid. Using default format.");
+            out.format = None;
+        };
+    }
+
     info!("Settings loaded");
 
     Ok(out)
 }
 
 #[instrument(skip_all)]
-async fn get_resolved_settings(app: &AppHandle) -> (Resolution, Option<String>) {
+async fn get_resolved_settings(app: &AppHandle) -> Settings {
     let settings = get_settings(app).await;
-    if let Ok(Settings { resolution, base }) = settings {
-        (resolution, base)
+    if settings.is_ok() {
+        settings.unwrap()
     } else {
-        (Resolution::HighRes, None)
+        Settings::default()
     }
 }
 
@@ -358,6 +409,13 @@ async fn get_resolved_settings(app: &AppHandle) -> (Resolution, Option<String>) 
 pub async fn load_settings(app: AppHandle) -> Result<Settings, String> {
     info!("load_settings command invoked");
     get_settings(&app).await
+}
+
+#[tauri::command]
+#[instrument(skip_all)]
+pub fn log_error(error: String) -> Result<(), String> {
+    error!("Front end error: {}", error);
+    Ok(())
 }
 
 #[tauri::command]
@@ -380,8 +438,7 @@ pub async fn download(
         old_cancellation_token.clone()
     };
 
-    let (resolution, base) = get_resolved_settings(&app).await;
-    let base = Arc::new(base);
+    let settings = Arc::new(get_resolved_settings(&app).await);
 
     let token = Arc::new(token);
     let folder = Arc::new(folder);
@@ -397,21 +454,24 @@ pub async fn download(
 
     for (i, video) in videos.into_iter().enumerate() {
         info!("Queuing download of {}", video.ttid);
-        let local_token = Arc::clone(&token);
-        let app_ref = Arc::clone(&app);
-        let folder_ref = Arc::clone(&folder);
-        let cancellation_token = cancellation_token.clone();
-        let base_clone = Arc::clone(&base);
 
-        let tx_clone = Arc::clone(&tx);
+        let (token, app, folder, cancel_token, settings) = (
+            token.clone(),
+            app.clone(),
+            folder.clone(),
+            cancellation_token.clone(),
+            settings.clone(),
+        );
+        let tx = tx.clone();
+
         set.spawn(async move {
             tokio::select! {
-                _ = cancellation_token.cancelled() => {
+                _ = cancel_token.cancelled() => {
                     info!("Cancelled download of {}", video.ttid);
                     Err((video.number, "Cancelled".to_string()))
                 }
                 // does this need to be cancel safe?
-                result = download_mp4(resolution, base_clone, i, tx_clone, &video, local_token, folder_ref, app_ref) => result,
+                result = download_mp4(settings, i, tx, &video, token, folder, app) => result,
             }
         });
     }

@@ -1,4 +1,5 @@
 import LogtoClient, { createRequester, Prompt } from "@logto/browser";
+import { invoke } from "@tauri-apps/api/core";
 import { fetch } from "@tauri-apps/plugin-http";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -9,6 +10,7 @@ import {
 	useState,
 } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 
 export const logtoClient = new LogtoClient({
 	endpoint: import.meta.env.VITE_LOGTO_ENDPOINT,
@@ -30,7 +32,7 @@ const LogtoContext = createContext<{
 });
 
 export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
-	const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+	const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 	const navigate = useNavigate();
 
 	async function updateAuthState() {
@@ -42,20 +44,32 @@ export const LogtoProvider = ({ children }: { children?: ReactNode }) => {
 		}
 	}
 
+	let loggedIn: string | number = "";
+	let autoLogin = true;
 	useEffect(() => {
-		updateAuthState();
+		loggedIn = toast.info("Attempting to login automatically...");
+		updateAuthState()
+		.catch((e) => {
+			toast.error("Failed to login automatically!");
+			invoke('log_error',{ error: `Failed to login automatically ${e}` });
+		});
 	}, []);
 
 	useEffect(() => {
 		if (isAuthenticated) {
 			navigate("/app");
+			toast.dismiss(loggedIn);
 		} else {
+			if (autoLogin && isAuthenticated === false) {
+				toast.error("You have not logged in yet. Please log in manually");
+				autoLogin = false;
+			}
 			navigate("/");
 		}
 	}, [isAuthenticated, navigate]);
 
 	return (
-		<LogtoContext.Provider value={{ isAuthenticated, updateAuthState }}>
+		<LogtoContext.Provider value={{ isAuthenticated: isAuthenticated ?? false, updateAuthState }}>
 			{children}
 		</LogtoContext.Provider>
 	);

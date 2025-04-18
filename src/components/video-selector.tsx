@@ -15,7 +15,6 @@ const base = "https://lex.crux-bphc.com/multipartus/courses";
 const videoAtomsAtom = splitAtom(videosAtom, (item) => item.ttid);
 
 const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
-	const formatter = new Intl.DateTimeFormat("en-US");
 	const [video, setVideo] = useAtom(props.video);
 
 	return (
@@ -39,7 +38,7 @@ const VideoItem = (props: { video: PrimitiveAtom<Multipartus.Video> }) => {
 				</div>
 				<div className="inline-flex gap-4">
 					<span className="text-sm text-muted-foreground">
-						{formatter.format(new Date(video.startTime))}
+						{video.startTime}
 					</span>
 					<Tooltip content="Watch in Lex">
 						<button
@@ -77,6 +76,7 @@ export const VideoSelector = () => {
 						selected: true,
 						number: videos.length - i,
 						subjectID: subject,
+						startTime: new Date(video.startTime).toLocaleDateString("en-IN"),
 					})),
 				)
 				.then(setVideo);
