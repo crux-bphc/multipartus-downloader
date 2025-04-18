@@ -23,7 +23,7 @@ static MAX_RETRY_COUNT: LazyLock<usize> =
     LazyLock::new(|| dotenvy_macro::dotenv!("MAX_RETRY_COUNT").parse().unwrap());
 
 /// References static client to perform a GET request with the token auth header
-async fn get(url: &str, id_token: &str, failiure_message: &str) -> Result<reqwest::Response> {
+async fn get(url: &str, id_token: &str, failure_message: &str) -> Result<reqwest::Response> {
     CLIENT
         .get(url)
         // If the request does not recieve any data within 30s, it fails
@@ -31,7 +31,7 @@ async fn get(url: &str, id_token: &str, failiure_message: &str) -> Result<reqwes
         .header(reqwest::header::AUTHORIZATION, format!("Bearer {id_token}"))
         .send()
         .await
-        .context(format!("Connection timed out when attempting to GET data from URL \"{url}\"!\n{failiure_message}"))
+        .context(format!("Connection timed out when attempting to GET data from URL \"{url}\"!\n{failure_message}"))
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]

@@ -93,7 +93,7 @@ export const SettingsDialog = () => {
 	}
 
 	async function setFormat(value: string) {
-		setSettings((prev) => ({ ...prev, format: (value.trim().length === 0 ? null : value) }));
+        setSettings((prev) => ({ ...prev, format: (value && value.trim() ? value.trim() : null) }));
 	}
 
 	async function setBase(value: string) {
