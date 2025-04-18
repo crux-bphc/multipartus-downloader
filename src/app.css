@@ -32,6 +32,7 @@
 	--primary-foreground: hsl(233 7.5% 6.4%);
 
 	--secondary: hsl(233 37.5% 19.2%);
+	--secondary-two-thirds: hsl(233 37.5% 12.8%);
 	--secondary-foreground: hsl(233 7.5% 98.2%);
 
 	--accent: hsl(233 37.5% 19.2%);
@@ -60,6 +61,7 @@
 	--color-primary: var(--primary);
 	--color-primary-foreground: var(--primary-foreground);
 	--color-secondary: var(--secondary);
+	--color-secondary-two-thirds: var(--secondary-two-thirds);
 	--color-secondary-foreground: var(--secondary-foreground);
 	--color-muted: var(--muted);
 	--color-muted-foreground: var(--muted-foreground);
